@@ -1,5 +1,8 @@
 This part takes in charge to convert *source code string* into `token` pairs.
 
+# TOC
+
+- [TOC](#toc)
 - [Token](#token)
 - [Regular Language](#regular-language)
   - [Regular Expressions](#regular-expressions)
@@ -17,6 +20,14 @@ This part takes in charge to convert *source code string* into `token` pairs.
   - [Automaton Diagram](#automaton-diagram)
     - [Practice](#practice)
   - [DFA and NFA](#dfa-and-nfa)
+- [RegExp Implementation](#regexp-implementation)
+  - [RegExp to NFA](#regexp-to-nfa)
+  - [NFA to DFA](#nfa-to-dfa)
+    - [$\\varepsilon$ Closure](#varepsilon-closure)
+    - [State Mapping](#state-mapping)
+    - [Converting Rules](#converting-rules)
+  - [DFA to Table-Driven DFA](#dfa-to-table-driven-dfa)
+  - [NFA to Table](#nfa-to-table)
 - [Resources](#resources)
 
 
@@ -118,7 +129,7 @@ Match string that do NOT contain digits.
 
 # Lexical Specification
 
-Now we already know the basic about *Regular Expressions*. How can we use this tools to make an *Lexical Analyzer* ?
+Now we already know the basic about *Regular Expressions*. How can we use this ruleset to make an *Lexical Analyzer* ?
 
 ## LA Matching Process
 
@@ -214,7 +225,95 @@ Both `NFA` and `DFA` could be used to recognize Regular Language. However:
 - `NFA`: Smaller *(Sometimes exponentially)*.
 - `DFA`: Faster to execute *(Since there is no choice, and only one possible state at a time)*.
 
+# RegExp Implementation
+
+## RegExp to NFA
+
+After knowing all info above, the next thing is to convert a RegExp into a NFA*(Nondeterministic Finite Automata)*.
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/db53f66d-56b5-47ab-899c-3b397992e0ed)
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/35d8aabf-294e-4606-bbc2-bb797d971889)
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/0f291b05-4302-4b2a-813c-0eab6d76baf7)
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/7f6ef93f-abd7-419d-a453-d67595030376)
+
+Those image above shows how to convert *Regular Language* into NFA. Including $\varepsilon, 'c', A + B, AB, A^*$.
+
+> Notice: The **node with schema $M_x$ in diagram actually refers to a sub-NFA**, whichs init state is actually the init state of the sub-NFA, and accept state is the accpet states of the sub-NFA.
+
+Here is example of the NFA Graph of `(0+1)* 1`:
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/781685c7-f25b-4f42-8325-ef85e2cd43a8)
+
+
+## NFA to DFA
+
+### $\varepsilon$ Closure
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/f66a07c2-090b-4b88-a5bd-89027077c1e8)
+
+As the image shows above, An $\varepsilon$ Closure of a node $A$ is all the nodes(including $A$ itself) could be reached through a finite steps of $\varepsilon$ moves.
+
+### State Mapping
+
+Denote that:
+
+- $S$ is the set of states in NFA.
+- $n = |S|$ is the number of the element inside $S$.
+
+Then the DFA that represents this NFA could have at most $2^n - 1$ nodes. *(Because empty set of state has been exlucded)*. And the **state of the DFA could be presented as subsets of the NFA**. For example, $X = \{A, B\}$: where $X$ is a state in DFA and $A, B$ are states in NFA.
+
+Moreover, denote:
+
+- $eclos(s)$ Set of $\varepsilon$ Closure of state $s$
+- $a(s)$ Set of all possible state next when current state is $s$ and input is $a$, or you could say:
+
+$$
+a(s_1) = \{s_2 | \exist s_1 \to^a s_2\}
+$$
+
+### Converting Rules
+
+Now we could use the following rules to convert NFA to DFA:
+
+- $S_{DFA}$ = Subset of $S_{NFA}$
+- $Start_{DFA}$ = $eclos(Start_{NFA})$
+- $F_{DFA}$ = $\{X | X \in S_{DFA} \wedge X \cup F_{NFA} \not= \emptyset \}$
+- $X_1 \to^a X_2$ Exists if: $X_2 = eclos(a(X_1))$
+
+## DFA to Table-Driven DFA
+
+Any DFA could be represented by a 2D table with following pattern.
+
+- Row Index: States of DFA
+- Column Index: Possible inputs
+- Table`[i][j]` = $x$ that satisfy $S_i \to^j S_x$
+
+Example:
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/dfb6e882-d414-49ad-8f63-49107f62c748)
+
+The corresponding table of the DFA above is:
+
+|     | 0   | 1   |
+| --- | --- | --- |
+| S   | t   | u   |
+| T   | t   | u   |
+| U   | t   | u   |
+
+Since **lots of rows are the same**, we could use a optimized pattern below to lower the size of table. However **this method could lower the algorithm** since there are indrect pointers, means we need to read twice time to get an item from table.
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/267b34f6-097e-489c-9cb3-a002abe0920f)
+
+## NFA to Table
+
+We could skip the step of converting to DFA, and directly convert a NFA into Table, however this will be slower since the table block now handles set of states as image show below:
+
+![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/e263d680-2bfa-4b45-aaa0-e5fad8e94787)
+
 # Resources
 
-- [Finite Automaton Diagram Whiteboard](https://madebyevan.com/fsm/)
+- [Finite Automaton Diagram Whiteboard](https://www.cs.unc.edu/~otternes/comp455/fsm_designer/)
 - [Regex To TransitionGraph Simulator](https://ivanzuzak.info/noam/webapps/fsm_simulator/)
