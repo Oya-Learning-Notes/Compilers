@@ -15,6 +15,9 @@
   - [Left Factoring](#left-factoring)
   - [Parsing Table of LL(1)](#parsing-table-of-ll1)
   - [Code Implementation](#code-implementation)
+  - [Generate LL(1) Table](#generate-ll1-table)
+    - [First Sets \& Follow Sets](#first-sets--follow-sets)
+    - [First Set](#first-set)
 - [AST (Abstract Syntax Tree)](#ast-abstract-syntax-tree)
 
 # About
@@ -367,6 +370,69 @@ while(!stack.empty()){
 
 ![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/679734c8-e322-418a-90b9-bef2c84ea115)
 
+## Generate LL(1) Table
+
+### First Sets & Follow Sets
+
+To generate Parse Table for LL(1), we actually need to calculate the `x` that satisfy `table[A][t] = x` (if it exists), that is:
+
+Consider:
+
+- $A$ A *Non-Terminal*
+- $\alpha$ A RHS pattern in *Production* $A$
+- $t$ Next *Terminal*
+- $B, P, Q, \cdots$ Some other *Terminal* or *Non-Terminal*
+
+Then $table[A][t] = \alpha$, if exists:
+
+$$
+\begin{aligned}
+  A& \to \{\cdots, \alpha, \cdots\} \\
+  a& \to^* tB \\
+  & or \\
+  A& \to \{\cdots, \alpha, \cdots\} \\
+  a& \to^* \varepsilon \\
+  B& \to^* PAtQ
+\end{aligned}
+$$
+
+Above contains two situations.
+
+The first one is simple: if we can get something like $tB$, then we definitely could match next token $t$ successfully. In this situation, we say $t \in First(\alpha)$
+
+The second one means, if we failed to find a way to get something start with $t$ from $A$, it's still possible to match it if $A$ could be derived into $\varepsilon$, and there exists some production could derived into $PAtQ$, so that once $A$ become $\varepsilon$, the next element could be $t$. In this situation, we say $t \in Follow(\alpha)$.
+
+### First Set
+
+For Terminal $t$, we have: 
+
+$$
+Start(t) = \{ t \}
+$$
+
+-----
+
+For a Non-Terminal $S$:
+
+$\varepsilon \in Start(S)$ if:
+
+$$
+\begin{aligned}
+  S &\to \varepsilon \\
+  & or \\
+  S &\to A_1 A_2 \dots A_n \\
+  \varepsilon &\in Start(A_i)
+\end{aligned}
+$$
+
+$Start(S') \in Start(S)$ if:
+
+$$
+\begin{aligned}
+  S &\to A_1 A_2 \dots A_n S' \dots \\
+  \varepsilon &\in Start(A_i)
+\end{aligned}
+$$
 
 # AST (Abstract Syntax Tree)
 
