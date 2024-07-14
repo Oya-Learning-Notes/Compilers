@@ -18,6 +18,12 @@
   - [Generate LL(1) Table](#generate-ll1-table)
     - [First Sets \& Follow Sets](#first-sets--follow-sets)
     - [First Set](#first-set)
+    - [Follow Set](#follow-set)
+  - [Build Table](#build-table)
+- [Bottom-Up Parsing](#bottom-up-parsing)
+- [Shift-Reduce Parsing](#shift-reduce-parsing)
+  - [Sub Strings](#sub-strings)
+  - [Shift \& Reduction](#shift--reduction)
 - [AST (Abstract Syntax Tree)](#ast-abstract-syntax-tree)
 
 # About
@@ -433,6 +439,84 @@ $$
   \varepsilon &\in Start(A_i)
 \end{aligned}
 $$
+
+### Follow Set
+
+The definition of Follow Set is: $t \in Follow(A)$ if exists:
+
+$$
+S \to^* PAtQ
+$$
+
+In which:
+
+- $S$ Some Non-Terminal
+- $P,Q$ Some Terminal or Non-Terminal
+- $t$ Terminal
+
+In a more succinct way, we could say:
+
+$$
+Follow(A) = \{ t | S \to^* PAtQ \}
+$$
+
+To **calculate Follow Set of $B$**, We just need to look the *Production* where $B$ was contained in it's *RHS*.
+
+$$
+\begin{aligned}
+  A \to PBQ &\Rightarrow First(Q) - \{ \varepsilon \} \subseteq Follow(B) \\
+  (A \to PBQ) \wedge (Q \to^* \varepsilon) &\Rightarrow Follow(A) \subseteq Follow(B)\\
+  \$ &\in Follow(S)
+\end{aligned}
+$$
+
+> In above, $S$ represents the entry, $\$$ represents *End Of Input*.
+
+## Build Table
+
+Once we have First Sets and Follow Sets, we can start building the Parse Table.
+
+For each $A \to \alpha$, we have:
+
+$$
+\begin{aligned}
+A \to \alpha, t \in First(\alpha) &\Rightarrow table[A][t] = \alpha \\
+  A \to \alpha, \varepsilon \in First(\alpha), t \in Follow(\alpha) &\Rightarrow table[A][t] = \alpha \\
+  A \to \alpha, \varepsilon \in First(\alpha), \$ \in Follow(\alpha) &\Rightarrow table[A][\$] = \alpha \\
+\end{aligned}
+$$
+
+If there are more than one item in the entry of the Parse Table, then this CFG(Context-Free Grammer) system is NOT LL(1) compatiable.
+
+# Bottom-Up Parsing
+
+Bottom-Up parsing is actually **do the opposite of *Production*, which we called *Reduction*.**
+
+![image](https://github.com/user-attachments/assets/0b3fb720-ffe0-4bd7-a469-13e637fb4966)
+
+And we can see that, if we see the process **from bottom to top, we will see that it's right-most derivation**. In another word, **Bottom-up Parsing traces right-most derivation in reverse.**
+
+One advantage of Bottom-up Parsing is that **it do NOT need Left Factoring**.
+
+# Shift-Reduce Parsing
+
+*Shift-Reduce Parsing* is a *Bottom-up Parsing* Algorithm that has been used by lots of popular parser generator.
+
+There are only two types of operation in this Algorithm: **Shift** and **Reduce**.
+
+## Sub Strings
+
+Consider a single step in Bottom-up Algorithm: $pABCq \to^{reduce} pXq$ (which based on $X \to ABC$), **then $q$ must be a string of Terminal**. This is because Bottom-up Parsing is always right-most derivation in reverse, so if $q$ is Non-Terminal, then $q$ should be reduced first before $ABC$ has been reduced.
+
+Based on this, we divided input into two substrings: the left part and the right part, use symbol $|$ to seperate them. Specially, call the **right part as Unexamined String** since they were not go through any Reduction.
+
+## Shift & Reduction
+
+- **Shift** means to **shift one Terminal from Unexamined String to left part.**
+- **Reduce** means to **perform Reduction with the elements at the end of left part.**
+
+![image](https://github.com/user-attachments/assets/fd71ea87-4202-414e-bfdb-5896a3085510)
+
 
 # AST (Abstract Syntax Tree)
 
