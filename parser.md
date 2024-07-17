@@ -22,8 +22,16 @@
   - [Build Table](#build-table)
 - [Bottom-Up Parsing](#bottom-up-parsing)
 - [Shift-Reduce Parsing](#shift-reduce-parsing)
-  - [Sub Strings](#sub-strings)
-  - [Shift \& Reduction](#shift--reduction)
+  - [Concept](#concept)
+    - [Sub Strings](#sub-strings)
+    - [Shift \& Reduction](#shift--reduction)
+    - [Items](#items)
+    - [Prefixes](#prefixes)
+    - [Prefix Chain](#prefix-chain)
+    - [Viable Prefixes](#viable-prefixes)
+  - [Recognize Prefixes](#recognize-prefixes)
+    - [Valid Item](#valid-item)
+  - [SLR Parsing](#slr-parsing)
 - [AST (Abstract Syntax Tree)](#ast-abstract-syntax-tree)
 
 # About
@@ -504,19 +512,148 @@ One advantage of Bottom-up Parsing is that **it do NOT need Left Factoring**.
 
 There are only two types of operation in this Algorithm: **Shift** and **Reduce**.
 
-## Sub Strings
+## Concept
+### Sub Strings
 
 Consider a single step in Bottom-up Algorithm: $pABCq \to^{reduce} pXq$ (which based on $X \to ABC$), **then $q$ must be a string of Terminal**. This is because Bottom-up Parsing is always right-most derivation in reverse, so if $q$ is Non-Terminal, then $q$ should be reduced first before $ABC$ has been reduced.
 
 Based on this, we divided input into two substrings: the left part and the right part, use symbol $|$ to seperate them. Specially, call the **right part as Unexamined String** since they were not go through any Reduction.
 
-## Shift & Reduction
+### Shift & Reduction
 
 - **Shift** means to **shift one Terminal from Unexamined String to left part.**
 - **Reduce** means to **perform Reduction with the elements at the end of left part.**
 
 ![image](https://github.com/user-attachments/assets/fd71ea87-4202-414e-bfdb-5896a3085510)
 
+### Items
+
+An item *(or in this case you can call it LR(0) items)* is a production with a symbol `.` in the righthand side. For example if we have a part of Production: $A \to (E)$, the items are:
+
+$$
+\begin{aligned}
+  A \to .(E) \\
+  A \to (.E) \\
+  A \to (E.) \\
+  A \to (E). \\
+\end{aligned}
+$$
+
+> Specifically, For production $A \to \varepsilon$, the only Item is $A \to .$
+
+We could use Item to **represent the state of our leftside stack** in Bottom-Up parsing. Which we will discuss later.
+
+### Prefixes
+
+If we look into the Stack in Bottom-Up Parsing, we may find that the stack is consists of a series of Prefixes of RHS.
+
+For example, consider a state during Bottom-Up Parsing, with a Production `T -> (E)`
+
+```
+(E|)
+This state of affairs could be described using Items!
+T -> (E.)
+```
+
+The mark `T -> (E.)` actually express such states of affairs:
+
+- **Prefix In Stack:** We have already see the prefix `(E` in Stack.
+- **Expected:** We expect to see `)` later in the Unexamined String.
+
+Also there is one property about *Prefixes* in Bottom-Up Parsing, that is: All **prefixes in *Bottom-Up Parsing* could be represented using *Regular Expression*.**
+
+### Prefix Chain
+
+Then generally, a valid Stack could actually be considered a valid Chain of Prefixes:
+
+![image](https://github.com/user-attachments/assets/4cafc15f-d79d-4713-bc5f-127b6a4d26f4)
+
+When `int*` got `T` and reduced to `T`, it becomes the needed part of previous prefix. When the `e` got `T`, then it will be reduced to `E` which is needed by it's previous prefix `T -> (.E)`, then it will become `T -> (E.)`
+
+Notice that in a input, the prefixes not always be viable, in another word, one of the key thing in Bottom-Up Parsing is to recognize *Viable Prefixes*.
+
+### Viable Prefixes
+
+This concept refers to ALL things in a stack. If the thing in this stack is possible to finally derived into entry point, then we say this is a *Viable Prefixes*.
+
+Notice that the "Prefix" in Viable Prefix are not the same thing with the prefix we talked above. The prefixes above is the prefix of RHS, but prefix in Viable Prefixes actually refers to some kind of state of the whole Stack.
+
+## Recognize Prefixes
+
+Here comes to the key part: How we recognize Viable Prefixes? How we know if the next input in Unexamined Strings is acceptable?
+
+The answer is **using NFA(Non-Finite Automata) to check the Prefixes in the Stack**.
+
+As we said above, Prefixes could be represented using Regular Expressions, thus can be checked using NFA, and actually the Item refers to a state of the NFA. Every state in this NFA is an accept state.
+
+There are only two rules when we convert CFG to NFA. For every Item: $Item_1 = A \to X.YZ$
+
+$$
+\begin{aligned}
+  (A \to X.YZ) &\to^Y (A \to XY.Z), &Y = Terminal \vee Y = NonTerminal \\
+  (A \to X.YZ) &\to^{\varepsilon} (X \to .Q), & \exists (X \to Q) \\
+\end{aligned}
+$$
+
+For example we may finally got the NFA below with CFG:
+
+$$
+\begin{aligned}
+  S' &\to E \\
+  E &\to T \\
+  E &\to T + E \\
+  T &\to (E) \\
+  T &\to int * T \\
+  T &\to int
+\end{aligned}
+$$
+
+![image](https://github.com/user-attachments/assets/ed2f633a-92ef-42a0-9d9e-b251e7076e00)
+
+For convenient, we could also convert this NFA to DFA *(a technique we used in Lexical Analyzer algorithm)*, then we could get something like the image shows below:
+
+![image](https://github.com/user-attachments/assets/44b13deb-c227-43b5-87c8-74fdb129c300)
+
+### Valid Item
+
+First we talk about the formal definition of Valid Item.
+
+$I \to X.Y$ is valid item for viable prefix $PX$ if exists Production $S \to^* PIQ \to PXYQ$
+
+**More Simple Way To Explain**
+
+Take it easy, actually a Valid Item is actually means if some Items are possible to be one the of the top of Stack. For example at some point we have Stak:
+
+$$
+ABCDE
+$$
+
+Then what could be considered as the Item in top stack? $I_1 \to DE.FGH$, $I_2 \to E.MN$, $I_3 \to CDE.P$ and so on. However only some of them are valid. For example if choosing $I_1$ will make it impossible to finally reduced to Entry, then $I_1$ is not a Valid Item for Viable Prefix $ABCDE$.
+
+You may already found, that's what the NFA / DFA above helps us do. **So simply, if we give a Viable Prefix in Stack to DFA, then all Items included in the ending state is a valid state of this Viable Prefix.**
+
+## SLR Parsing
+
+Finally! We are going to talking about how the Parsing Algorithm looks like! Fisrt of all, SLR stands for Simple LR(0) Parsing. We will talk about the "Simple" in the name later.
+
+We the knowledge about Recognize Valid Items above, consider we are in a certain states:
+
+- Next **input in Unexamined Strings is $t$**. *(You could also say the first thing in that Strings is $t$)*
+- The Valid Item **DFA halt in an Accept State $s$** when given Stack as input. *(Notice that $s$ should be a set of Items)*
+
+Then the rule of SLR is:
+
+- Reduce by $A \to B$ if satisfy both:
+  - $(A \to B.) \in s$
+  - $t \in Follow(A)$ *(Notice this is what SLR different from LR(0))*
+- Shift $(A \to X.tY) \to^t (A \to Xt.Y)$ if satisfy:
+  -  $(A \to X.tY) \in s$
+
+By using SLR, there will be less Shift-Reduce and Reduce-Reduce conflict. *(However SLR could not always completely annihilate such conflict)* It's more about a heuristic method of finding correct handle.
+
+> If a DFA generated from CFG could always find the correct token with SLR, than it's SLR Language, otherwise it's not.
+
+Now let's try some example:
 
 # AST (Abstract Syntax Tree)
 
