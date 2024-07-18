@@ -150,8 +150,14 @@ class FA:
             # we still need to check if there is any epsilon moves in the newly found nodes
             it_nodes = epsilon_nodes
 
+            before_count: int = len(input_states)
             # also the found node should be added to new states
             input_states.extend(epsilon_nodes)
+
+            # if final states count not increase, break
+            after_count: int = len(input_states)
+            if after_count == before_count:
+                break
 
         return input_states
 
