@@ -1,5 +1,6 @@
 from typing import NewType, Union
 from loguru import logger
+import graphviz as gv
 
 from .utils import get_node_id
 
@@ -7,13 +8,14 @@ type FANodeID = int | str
 type FAChar = str | None
 
 
-class FANode:
+class FANode[LabelType]:
     nid: FANodeID
     is_start: bool
     is_end: bool
     pointers: list[tuple[FAChar, FANodeID]]
+    label: LabelType | None  # label of this node
 
-    def __init__(self, is_start=False, is_end=False, nid=None) -> None:
+    def __init__(self, is_start=False, is_end=False, nid=None, label=None) -> None:
         if nid is None:
             nid = get_node_id()
 
@@ -21,6 +23,7 @@ class FANode:
         self.is_start = is_start
         self.is_end = is_end
         self.pointers = []
+        self.label = label
 
     def __repr__(self) -> str:
         str = f'<FANode id:{self.nid} Start:{self.is_start} Fin:{self.is_end}>\n'
@@ -82,8 +85,8 @@ class FANode:
         return True
 
 
-class FA:
-    nodes: dict[FANodeID, FANode]
+class FA[LabelType]:
+    nodes: dict[FANodeID, FANode[LabelType]]
     _current_states: list[FANode]
     max_match: int
 
@@ -108,6 +111,10 @@ class FA:
 
         repr_str += '</FA>'
         return repr_str
+
+    def to_graphviz(self) -> gv.Digraph:
+        pass
+        # create a new graphviz directed graph object.
 
     def get_start_states(self) -> list[FANode]:
         return self.find_epsilons([n for nid, n in self.nodes.items() if n.is_start])

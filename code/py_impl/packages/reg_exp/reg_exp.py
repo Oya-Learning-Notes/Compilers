@@ -1,4 +1,4 @@
-from . import fa
+import automata as fa
 
 
 class RegularExpr:
