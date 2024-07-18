@@ -1,7 +1,7 @@
 # import sys
 # sys.path.insert(0, "./packages")
 
-from reg_exp import CharExpr, MulExpr, AddExpr, WildCardExpr
+from reg_exp import CharExpr, MulExpr, AddExpr, WildCardExpr, CharListExpr
 import automata as fa
 import lexical_analyzer as la
 
@@ -10,16 +10,18 @@ single_one_reg = CharExpr('1')
 binary_expr = MulExpr(
     CharExpr('b'),
     WildCardExpr(
-        AddExpr(single_one_reg, single_zero_reg)
+        CharListExpr('01')
     )
 )
 add_expr = CharExpr('+')
 whitespace_expr = AddExpr(CharExpr(' '), CharExpr('\n'))
 whitespaces_expr = MulExpr(whitespace_expr, WildCardExpr(whitespace_expr))
 
+# Generate graph
 binary_graph = fa.visualize.FADiGraph().from_fa(binary_expr.to_fa())
 binary_graph.get_graph().render(directory='output', view=True)
 
+# create Lexical Analyzer
 analyzer = la.LexicalAnalyzer(token_definitions=[
     la.TokenDefinition(token_type='binary', regular_expr=binary_expr),
     la.TokenDefinition(token_type='add', regular_expr=add_expr),
@@ -27,7 +29,7 @@ analyzer = la.LexicalAnalyzer(token_definitions=[
 ])
 
 pairs = analyzer.parse("""
-b1001110 + b1001b1111111 + b00000000
+b1001110 + b1001+b1111111 + b00000000
 """)
 
 for p in pairs:
