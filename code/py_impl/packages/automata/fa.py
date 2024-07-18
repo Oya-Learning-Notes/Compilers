@@ -116,8 +116,10 @@ class FA[LabelType]:
         pass
         # create a new graphviz directed graph object.
 
-    def get_start_states(self) -> list[FANode]:
-        return self.find_epsilons([n for nid, n in self.nodes.items() if n.is_start])
+    def get_start_states(self, find_epsilons: bool = False) -> list[FANode]:
+        if not find_epsilons:
+            return [n for (nid, n) in self.nodes.items() if n.is_start]
+        return self.find_epsilons([n for (nid, n) in self.nodes.items() if n.is_start])
 
     def get_end_states(self) -> list[FANode]:
         return self.find_epsilons([n for nid, n in self.nodes.items() if n.is_end])
@@ -128,7 +130,7 @@ class FA[LabelType]:
 
         Return this FA itself.
         """
-        self._current_states = self.get_start_states()
+        self._current_states = self.get_start_states(find_epsilons=True)
         self.max_match = 0
         return self
 

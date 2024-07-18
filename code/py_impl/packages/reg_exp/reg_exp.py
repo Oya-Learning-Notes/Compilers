@@ -37,8 +37,8 @@ class AddExpr(RegularExpr):
         self._right = right
 
     def to_fa(self) -> fa.FA:
-        start_node = fa.FANode(is_start=True)
-        end_node = fa.FANode(is_end=True)
+        start_node = fa.FANode(is_start=True, label='And_S')
+        end_node = fa.FANode(is_end=True, label='And_E')
 
         # convert two sub regex to fa
         left_fa = self._left.to_fa()
@@ -87,20 +87,32 @@ class MulExpr(RegularExpr):
         self._right = right
 
     def to_fa(self) -> fa.FA:
-        start_node = fa.FANode(is_start=True)
-        end_node = fa.FANode(is_end=True)
-        mid_start_node = fa.FANode()
+        start_node = fa.FANode(is_start=True, label='Mul_S')
+        end_node = fa.FANode(is_end=True, label='Mul_E')
+        mid_start_node = fa.FANode(label='Mul_M')
 
         left_fa = self._left.to_fa()
         right_fa = self._right.to_fa()
 
+        # start node point to left_fa start
+        for node in left_fa.get_start_states():
+            node.is_start = False
+            start_node.point_to(None, node.nid)
+
+        # left end point to mid
         for node in left_fa.get_end_states():
             node.is_end = False
             node.point_to(None, mid_start_node.nid)
 
+        # mid point to right start
         for node in right_fa.get_start_states():
             node.is_start = False
             mid_start_node.point_to(None, node.nid)
+
+        # right point to end
+        for node in right_fa.get_end_states():
+            node.is_end = False
+            node.point_to(None, end_node.nid)
 
         node_dict = {}
         node_dict[start_node.nid] = start_node
@@ -127,9 +139,9 @@ class WildCardExpr(RegularExpr):
         self._left = left
 
     def to_fa(self) -> fa.FA:
-        start_node = fa.FANode(is_start=True)
-        matched_node = fa.FANode()
-        end_node = fa.FANode(is_end=True)
+        start_node = fa.FANode(is_start=True, label='WC_S')
+        matched_node = fa.FANode(label='WC_M')
+        end_node = fa.FANode(is_end=True, label='WC_E')
 
         left_fa = self._left.to_fa()
 
