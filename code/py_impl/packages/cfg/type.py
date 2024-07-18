@@ -36,6 +36,8 @@ class Derivation:
 
     def __repr__(self) -> str:
         repr_str = ''
+        if self.pieces is None:
+            return '\\e'
         for piece in self.pieces:
             repr_str += repr(piece)
         return repr_str
@@ -70,12 +72,22 @@ class CFGSystem:
     # store follow set
     follow_sets: dict[Piece, set[Terminal]]
 
+    # tmp value used to store some calc states
+    _recur_runtime_set: set[Piece]  # a tmp set used to record the parameter stack of recursive runtime
+    _recur_piece_detected_in_calc_follow: Piece | None  # store the piece that led to recursive circular if exists
+    _is_recur_when_calc_follow: bool
+
     def __init__(self, production_list: list[Production]) -> None:
         self.production_list = production_list
         self.used_pieces = set()
         # init used_pieces
         for prod in self.production_list:
+            # add source
             self.used_pieces.add(prod.source)
+
+            # add target
+            if prod.target.pieces is None:  # skip epsilon pieces
+                continue
             for t in prod.target.pieces:
                 # None should not be included in used_pieces
                 if t is None:
@@ -188,15 +200,29 @@ class CFGSystem:
         Must call generate_first_set() before calling this method.
         """
 
-        for piece in self.used_pieces:
-            self.calc_follow_set(piece)
+        # enable recursive tracking
+        self._recur_runtime_set = set()
+        self._recur_piece_detected_in_calc_follow = None
+        self._is_recur_when_calc_follow = True
 
-    def calc_follow_set(self, piece: Piece) -> set[Terminal | None]:
+        while self._is_recur_when_calc_follow:
+            self._is_recur_when_calc_follow = False
+            for piece in self.used_pieces:
+                self.calc_follow_set(piece)
+
+    def calc_follow_set(self, piece: Piece, enable_recur_detect: bool = True) -> set[Terminal | None]:
         # try using cache
         try:
             return self.follow_sets[piece]
         except KeyError:
             pass
+
+        # if detected recursive call, return an empty set
+        if enable_recur_detect and (piece in self._recur_runtime_set):
+            self._recur_piece_detected_in_calc_follow = piece
+            self._is_recur_when_calc_follow = True
+            return set()
+        self._recur_runtime_set.add(piece)
 
         follow_set: set[Terminal | None] = set()
 
@@ -242,54 +268,37 @@ class CFGSystem:
         except KeyError:
             pass
 
-        # update cache
-        self.follow_sets[piece] = follow_set
+        # if current recur pieces not None, we need to check if this piece is the one that cause recur circle
+        # if it is, then after this, the flag should be removed since the recur circle has been resolved
+        if (enable_recur_detect
+                and (self._recur_piece_detected_in_calc_follow is not None)
+                and (piece == self._recur_piece_detected_in_calc_follow)):
+            # update recur piece flag if it's not in stack anymore
+            self._recur_piece_detected_in_calc_follow = None
+
+        # update cache when this result is the final
+        if (not enable_recur_detect) or (self._recur_piece_detected_in_calc_follow is None):
+            self.follow_sets[piece] = follow_set
+
+        # remove piece from runtime stack
+        try:
+            self._recur_runtime_set.remove(piece)
+        except KeyError:
+            pass
+
         return follow_set
-
-
-def main():
-    terminal_int = Terminal(name='int')
-    terminal_add = Terminal(name='+')
-    terminal_mul = Terminal(name='*')
-    terminal_eof = Terminal(name='$')
-    terminal_left_para = Terminal(name='(')
-    terminal_right_para = Terminal(name=')')
-    non_terminal_s = NonTerminal(name='S')
-    non_terminal_e = NonTerminal(name='E')
-    non_terminal_t = NonTerminal(name='T')
-
-    cfg_sys = CFGSystem(production_list=[
-        # S = E EOF
-        Production(source=non_terminal_s, target=Derivation(pieces=[non_terminal_e, terminal_eof])),
-        # E = T + E
-        Production(source=non_terminal_e, target=Derivation(pieces=[non_terminal_t, terminal_add, non_terminal_e])),
-        # E = T
-        Production(source=non_terminal_e, target=Derivation(pieces=[non_terminal_t])),
-        # T = (E)
-        Production(source=non_terminal_t,
-                   target=Derivation(pieces=[terminal_left_para, non_terminal_e, terminal_right_para])),
-        # T = int * T
-        Production(source=non_terminal_t, target=Derivation(pieces=[terminal_int, terminal_mul, non_terminal_t])),
-        # T = int
-        Production(source=non_terminal_t, target=Derivation(pieces=[terminal_int])),
-    ])
-
-    print('Used pieces:\n', cfg_sys.used_pieces)
-    print('Used Non Terminal:\n', set([i for i in cfg_sys.used_pieces if isinstance(i, NonTerminal)]))
-
-    for k, v in cfg_sys.first_sets.items():
-        print(f'First({k}) = {v}')
-
-    for k, v in cfg_sys.follow_sets.items():
-        print(f'Follow({k}) = {v}')
-
-    for k, v in cfg_sys.production_dict.items():
-        print(f'{k} -> {v}')
-
-
-if __name__ == '__main__':
-    main()
 
 # a -> bc
 # c -> xa
 # a -> bxa
+
+
+# A -> b|Ax
+# Change grammar
+# A -> bA'
+# A'-> x | xA' | e (e means epsilon here)
+
+# A -> BC
+# C -> DA
+# A -> BC -> BDA,  A ->* BDA, Follow(A) \subset Follow(A)
+# ABDBDBDBDBDBDA
