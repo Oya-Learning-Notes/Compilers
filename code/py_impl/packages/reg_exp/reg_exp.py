@@ -1,7 +1,20 @@
 import automata as fa
+from typing import Iterable
 
 
 class RegularExpr:
+    """
+    Base class for Regular Expressions.
+    """
+
+    # To write a sub-class, the main task is to rewrite __init__() and to_fa() method.
+    #
+    # - __init__() should take enough info for generating this Expression.
+    # - to_fa() returns a fa.FA() instance, representing the Automata of this RegExp.
+    #
+    # Notice:
+    # - It's recommend to only have one single Start and End node in the Automata generated.
+
     def to_fa(self) -> fa.FA:
         pass
 
@@ -171,3 +184,18 @@ class WildCardExpr(RegularExpr):
         node_dict.update(left_fa.nodes)
 
         return fa.FA(node_dict)
+
+
+class CharListExpr(RegularExpr):
+    _char_list: Iterable
+
+    def __init__(self, char_list: Iterable):
+        self._char_list = char_list
+
+    def to_fa(self) -> fa.FA:
+        start_node = fa.FANode(is_start=True)
+        end_node = fa.FANode(is_end=True)
+        for char in self._char_list:
+            start_node.point_to(char, end_node.nid)
+
+        return fa.FA({start_node.nid: start_node, end_node.nid: end_node})
