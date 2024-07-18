@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import reg_exp as regex
+import automata as fa
 
 
 class TokenDefinition:
@@ -11,7 +12,7 @@ class TokenDefinition:
 
     regular_expr: regex.RegularExpr
 
-    fa: regex.FA
+    fa: fa.FA
 
     def __init__(self, token_type: str, regular_expr: regex.RegularExpr, priority: int = 0):
         self.token_type = token_type
@@ -24,6 +25,7 @@ class TokenDefinition:
 
     def __eq__(self, other):
         return self.token_type == other.token_type
+
 
 @dataclass
 class TokenPair:
