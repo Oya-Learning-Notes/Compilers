@@ -1,6 +1,7 @@
 # from typing import NewType, Union
 from loguru import logger
 import graphviz as gv
+from copy import copy
 
 from .utils import get_node_id
 
@@ -111,9 +112,13 @@ class FANode[LabelType, FAChar]:
         self.pointers.append(pointer_tuple)
         return True
 
-    def hash_of_pointers(self) -> int:
+    def hash_of_pointers(self, consider_is_end: bool = False) -> int:
         """
         Return logical hash values of a group of pointers.
+
+        Params:
+
+        - consider_is_end: If `True`, node with different is_end value will have different hash
 
         Notice:
 
@@ -123,7 +128,10 @@ class FANode[LabelType, FAChar]:
         Nodes with same pointers hash value should be able to merge when minimizing DFA.
         """
         pointers_set = set(self.pointers)  # convert pointers list to set. This will ignore order & remove duplicated
-        return hash(pointers_set)
+        hashval = hash(tuple(pointers_set))
+        if consider_is_end:
+            hashval = hash(tuple([hashval, self.is_end]))
+        return hashval
 
 
 class FA[LabelType, CharType]:
@@ -154,6 +162,9 @@ class FA[LabelType, CharType]:
 
         repr_str += '</FA>'
         return repr_str
+
+    def __copy__(self):
+        return FA(nodes_dict=self.nodes)
 
     def to_graphviz(self) -> gv.Digraph:
         pass
@@ -207,7 +218,7 @@ class FA[LabelType, CharType]:
                 break
 
             # convert id to nodes instance
-            epsilon_nodes = self.convert_id_list_to_node_list(
+            epsilon_nodes = self.convert_id_set_to_node_set(
                 found_epsilons
             )
 
@@ -283,7 +294,7 @@ class FA[LabelType, CharType]:
             new_id = cur_state.try_move(next_input)
             if new_id is None:
                 continue
-            new_states.update(self.convert_id_list_to_node_list(new_id))
+            new_states.update(self.convert_id_set_to_node_set(new_id))
 
         # if no new states, failed to move
         if len(new_states) == 0:
@@ -336,7 +347,7 @@ class FA[LabelType, CharType]:
 
         return False
 
-    def convert_id_list_to_node_list(self, id_set: set[FANodeID]):
+    def convert_id_set_to_node_set(self, id_set: set[FANodeID]):
         """
         Convert a list of nid to the FANode object
 
@@ -344,7 +355,7 @@ class FA[LabelType, CharType]:
         """
         return [self.nodes[nid] for nid in id_set]
 
-    def to_dfa(self, new_fa: bool = True) -> 'FA[LabelType,CharType]':
+    def to_dfa(self, new_fa: bool = True, minimize: bool = True) -> 'FA[LabelType,CharType]':
         """
         Try to convert current FA to DFA.
 
@@ -411,10 +422,102 @@ class FA[LabelType, CharType]:
             nodes_dict_for_fa_init[node.nid] = node
 
         if new_fa:
-            return FA(nodes_dict=nodes_dict_for_fa_init)
+            return FA(nodes_dict=nodes_dict_for_fa_init).minimize(new_fa=False)
         else:
             self.nodes = nodes_dict_for_fa_init
+            self.minimize(new_fa=False)
             return self
+
+    def minimize(self, check_dfa: bool = False, new_fa: bool = False) -> 'FA[LabelType, CharType]':
+        """
+        Try to minimize this FA.
+
+        Params:
+
+        - `check_dfa` If true, check if this FA is DFA before perform minimize
+        - `new_fa` If true, return a newly created FA
+
+        Notice that only DFA could be simplified.
+        """
+
+        if check_dfa and (not self.is_dfa()):
+            raise RuntimeError('Only Determined Finite Automaton should be minimized, you are trying to minimize a NFA')
+
+        if new_fa:
+            return copy(self).minimize(new_fa=False)
+
+        # store the node with certain transition hash
+        transition_hash_dict: dict[int, set[FANode]] = {}
+
+        # group nodes with same transition hash
+        for node in self.nodes.values():
+            transition_hash = node.hash_of_pointers(consider_is_end=True)
+            nodes_set_for_this_hash = transition_hash_dict.setdefault(transition_hash, set())
+            nodes_set_for_this_hash.add(node)
+
+        # merge those with same hash
+        for nodes_set_with_same_hash in transition_hash_dict.values():
+            self.merge_nodes(nodes_set_with_same_hash)
+
+        # remove unref node
+        self.remove_unref_node()
+        return self
+
+    def merge_nodes(self, nodes_set: set[FANode]) -> None:
+        if len(nodes_set) < 2:
+            return
+
+        # generate standard node
+        std_node = None
+        for i in nodes_set:
+            std_node = i
+            if i.is_end:
+                std_node.is_end = True
+            if i.is_start:
+                std_node.is_start = True
+
+        for node in self.nodes.values():
+            # set standard node
+            if std_node is None:
+                std_node = node
+
+            # replace all pointers that point to nodes in this set to std node
+            pointer_to_be_replaced: list[tuple[CharType, FANodeID]] = []
+            for pointer in node.pointers:
+                # get the node that this pointer points to
+                point_to_nid = pointer[1]
+                point_to_node = self.nodes[point_to_nid]
+
+                # if matched, add to replace
+                if point_to_node in nodes_set:
+                    pointer_to_be_replaced.append(pointer)
+
+            # replace pointer to std node (add new pointer points to std_node, remove old pointer)
+            for p in pointer_to_be_replaced:
+                node.pointers.append(tuple[CharType, FANodeID]([p[0], std_node.nid]))
+                node.pointers.remove(p)
+
+    def remove_unref_node(self) -> None:
+        """
+        Remove node from this FA if no pointers points to it.
+        """
+        ref_set: set[FANodeID] = set()
+
+        ref_set.update([st.nid for st in self.get_start_states(find_epsilons=True)])
+
+        for node in self.nodes.values():
+            for pointer in node.pointers:
+                ref_set.add(pointer[1])
+
+        # get refed set
+        ref_node_set = self.convert_id_set_to_node_set(ref_set)
+
+        # convert set to dict
+        ref_dict: dict[FANodeID, FANode] = dict()
+        for n in ref_node_set:
+            ref_dict[n.nid] = n
+
+        self.nodes = ref_dict
 
     @staticmethod
     def _create_set_state(state_set: set[FANode[LabelType, CharType]]) -> FANode[list[LabelType], CharType]:
