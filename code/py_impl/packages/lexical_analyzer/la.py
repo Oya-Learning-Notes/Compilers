@@ -14,6 +14,9 @@ class TokenDefinition:
 
     fa: fa.FA
 
+    def use_dfa(self):
+        self.fa = self.fa.to_dfa()
+
     def __init__(self, token_type: str, regular_expr: regex.RegularExpr, priority: int = 0):
         self.token_type = token_type
         self.priority = priority
@@ -40,10 +43,16 @@ class LexicalAnalyzer:
     # store the parsed token pair
     token_pairs: list[TokenPair]
 
-    def __init__(self, token_definitions: list[TokenDefinition]):
+    def __init__(self, token_definitions: list[TokenDefinition], use_dfa: bool = True):
         # initial token definitions
         token_definitions.sort()
         self.token_definitions = token_definitions
+
+        # use dfa if needed
+        if use_dfa:
+            for defs in self.token_definitions:
+                defs.use_dfa()
+
         # init token pairs
         self.token_pairs = []
 
@@ -65,9 +74,10 @@ class LexicalAnalyzer:
             for token_defs in self.token_definitions:
                 token_defs.fa.test_str(input_str)
                 max_match = token_defs.fa.max_match
+                accepted = token_defs.fa.is_accepted()
 
                 # not match at all
-                if max_match == 0:
+                if not accepted:
                     continue
 
                 has_match = True
@@ -84,6 +94,6 @@ class LexicalAnalyzer:
 
             # no token matched
             if not has_match:
-                raise RuntimeError('Failed to parse token at place')
+                raise RuntimeError(f'Failed to parse token, parsed: {parsed}')
 
         return self.token_pairs

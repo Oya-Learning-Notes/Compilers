@@ -17,8 +17,24 @@ add_expr = CharExpr('+')
 whitespace_expr = AddExpr(CharExpr(' '), CharExpr('\n'))
 whitespaces_expr = MulExpr(whitespace_expr, WildCardExpr(whitespace_expr))
 
+
+def get_label_for_set_of_state(nid, node: fa.FANode):
+    label = str(nid)
+    label += '\n'
+    for lb in node.label:
+        label += '\n'
+        if lb is None:
+            label += str('...')
+        else:
+            label += str(lb)
+
+    return label
+
+
 # Generate graph
-binary_graph = fa.visualize.FADiGraph().from_fa(binary_expr.to_fa())
+binary_graph = fa.visualize.FADiGraph(
+    get_node_label=get_label_for_set_of_state,
+).from_fa(binary_expr.to_fa().to_dfa())
 binary_graph.get_graph().render(directory='output', view=True)
 
 # create Lexical Analyzer
