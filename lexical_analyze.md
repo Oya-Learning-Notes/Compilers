@@ -26,6 +26,7 @@ This part takes in charge to convert *source code string* into `token` pairs.
     - [$\\varepsilon$ Closure](#varepsilon-closure)
     - [State Mapping](#state-mapping)
     - [Converting Rules](#converting-rules)
+    - [Possible Algorithm Implementation (Not-Examined)](#possible-algorithm-implementation-not-examined)
   - [DFA to Table-Driven DFA](#dfa-to-table-driven-dfa)
   - [NFA to Table](#nfa-to-table)
 - [Resources](#resources)
@@ -282,6 +283,45 @@ Now we could use the following rules to convert NFA to DFA:
 - $Start_{DFA}$ = $eclos(Start_{NFA})$
 - $F_{DFA}$ = $\{X | X \in S_{DFA} \wedge X \cup F_{NFA} \not= \emptyset \}$
 - $X_1 \to^a X_2$ Exists if: $X_2 = eclos(a(X_1))$
+
+### Possible Algorithm Implementation (Not-Examined)
+
+Denotes that:
+
+- $eclos(s)$ Set of $\varepsilon$ Closure of state $s$
+
+That means: for any $x \in eclos(s)$, then we could use finite steps of $\varepsilon$ moves from $s$ to $x$
+
+- $move(a,S)$ Set of all possible state next when current state is $S$ and input is $a$. 
+
+Notice here $S$ is a set of states, This means: 
+
+$$
+x \in move(a,S) \Leftrightarrow \exists s (s \in S \wedge s\to^a x)
+$$
+
+Then the pseudo code could be:
+
+```python
+# DFA start state is e-closure of NFA start state
+dfa_start_state = eclos(start_state(NFA))
+
+# function used to detect new dfa state based on received previous state
+def find_new_state(prev_state):
+    if prev_state is already found:
+        return
+    # loop all possible input for current DFA state
+    for input in all_possible_input(prev_state):
+        # for each possible input, find DFA state after this input
+        new_dfa_state = eclos(move(a, prev_state))
+        # add to dfa state
+        add_dfa_state_if_not_exists(new_dfa_state)
+        # start from the newly found state, search more possible state
+        find_new_state(new_dfa_state)
+
+# start DFS search from DFA start state
+find_new_state(dfa_start_state)
+```
 
 ## DFA to Table-Driven DFA
 
