@@ -139,9 +139,11 @@ class FA[LabelType, CharType]:
 
     nodes: dict[FANodeID, FANode[LabelType, CharType]]
     _current_states: set[FANode[LabelType, CharType]]
+    _max_match: int
     max_match: int
 
     def __init__(self, nodes_dict: dict[FANodeID, FANode] | list[FANode]) -> None:
+        self._max_match = 0
         self.max_match = 0
 
         # convert list to dict if needed
@@ -197,6 +199,7 @@ class FA[LabelType, CharType]:
         Return this FA itself.
         """
         self._current_states = self.get_start_states(find_epsilons=True)
+        self._max_match = 0
         self.max_match = 0
         return self
 
@@ -264,8 +267,10 @@ class FA[LabelType, CharType]:
             return False
 
         # valid move, update state
-        self.max_match += 1
+        self._max_match += 1
         self._current_states = next_state
+        if self.is_accepted():
+            self.max_match = self._max_match
         return True
 
     def _move_next(

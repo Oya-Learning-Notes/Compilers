@@ -63,6 +63,10 @@ class CFGSystem:
     # generated production dict, key is source, value is set of Derivation
     production_dict: dict[NonTerminal, set[Derivation]]
 
+    # indicate the parsing entry of this CFG.
+    # Could be NonTerminal or Terminal, usually to be NonTerminal
+    entry: Piece | None
+
     # record all used pieces
     used_pieces: set[Piece]
 
@@ -72,14 +76,20 @@ class CFGSystem:
     # store follow set
     follow_sets: dict[Piece, set[Terminal]]
 
-    # tmp value used to store some calc states
+    # tmp value used to store follow calc states
     _recur_runtime_set: set[Piece]  # a tmp set used to record the parameter stack of recursive runtime
     _recur_piece_detected_in_calc_follow: Piece | None  # store the piece that led to recursive circular if exists
     _is_recur_when_calc_follow: bool
 
-    def __init__(self, production_list: list[Production]) -> None:
+    # tmp value used to store first calc states
+    _recur_runtime_set_first: set[Piece]
+    _recur_piece_detected_in_calc_first: Piece | None
+    _is_recur_when_calc_first: bool
+
+    def __init__(self, production_list: list[Production], entry: Piece | None = None) -> None:
         self.production_list = production_list
         self.used_pieces = set()
+        self.entry = entry
         # init used_pieces
         for prod in self.production_list:
             # add source
@@ -93,6 +103,13 @@ class CFGSystem:
                 if t is None:
                     continue
                 self.used_pieces.add(t)
+
+        # check if entry is in the used pieces
+        if (self.entry is not None) and (self.entry not in self.used_pieces):
+            raise RuntimeError(
+                'Defined CFG entry must in the used pieces of this CFG. '
+                f'Current entry {self.entry} not in set of used pieces.'
+            )
 
         self.generate_production_dict()
 
@@ -126,19 +143,38 @@ class CFGSystem:
         return self.production_dict[source]
 
     def generate_first_set(self) -> None:
-        for piece in self.used_pieces:
-            self.calc_first_set(piece)
+        # enable recursive tracking (circular recursive)
 
-    def calc_first_set(self, piece: Piece) -> set[Terminal | None]:
+        self._recur_runtime_set_first = set()
+        self._recur_piece_detected_in_calc_first = None
+        self._is_recur_when_calc_first = True
+
+        while self._is_recur_when_calc_first:
+            for piece in self.used_pieces:
+                self.calc_first_set(piece)
+            self._is_recur_when_calc_first = False
+
+    def calc_first_set(self, piece: Piece, enable_recur_detect: bool = True) -> set[Terminal | None]:
         """
         Calculate the first set of a piece.
 
         This method currently do NOT support CFG system that may cause Left Recursive.
         """
+
+        logger.debug(f'Enter calc first set of {piece}')
         try:
             return self.first_sets[piece]
         except KeyError:
             pass
+
+        logger.debug(f'Calculating first set of {piece}')
+
+        # circular dependency detected, return empty set first
+        if enable_recur_detect and (piece in self._recur_runtime_set_first):
+            self._recur_piece_detected_in_calc_first = piece
+            self._is_recur_when_calc_first = True
+            return set()
+        self._recur_runtime_set_first.add(piece)
 
         # if piece is terminal, return set with only itself inside.
         if isinstance(piece, Terminal):
@@ -189,8 +225,16 @@ class CFGSystem:
             except KeyError:
                 pass
 
-        # update catch and return
-        self.first_sets[piece] = first_set
+        # check if that the circular dependency error is cause by this piece
+        if (enable_recur_detect
+                and (self._recur_piece_detected_in_calc_first is not None)
+                and (piece == self._recur_piece_detected_in_calc_first)):
+            # remove the recur flag
+            self._recur_piece_detected_in_calc_first = None
+
+        # update catch if this result is final and valid
+        if (not enable_recur_detect) or (self._recur_piece_detected_in_calc_first is None):
+            self.first_sets[piece] = first_set
         return first_set
 
     def generate_follow_set(self) -> None:
@@ -199,7 +243,6 @@ class CFGSystem:
 
         Must call generate_first_set() before calling this method.
         """
-
         # enable recursive tracking
         self._recur_runtime_set = set()
         self._recur_piece_detected_in_calc_follow = None
@@ -211,6 +254,7 @@ class CFGSystem:
                 self.calc_follow_set(piece)
 
     def calc_follow_set(self, piece: Piece, enable_recur_detect: bool = True) -> set[Terminal | None]:
+        logger.debug(f'Calculating follow set of {self}')
         # try using cache
         try:
             return self.follow_sets[piece]

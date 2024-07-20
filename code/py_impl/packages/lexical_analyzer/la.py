@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 import reg_exp as regex
 import automata as fa
+from cfg import Terminal, NonTerminal
 
 
 class TokenDefinition:
@@ -34,6 +35,18 @@ class TokenDefinition:
 class TokenPair:
     token_type: str
     content: str
+
+    def is_match(self, terminal: Terminal) -> bool:
+        """
+        Check if this TokenPair match a certain Terminal in CFG.
+
+        By default, this method will consider match if token_type str == terminal.name str
+        """
+        if not isinstance(terminal, Terminal):
+            return False
+        if not self.token_type == terminal.name:
+            return False
+        return True
 
 
 class LexicalAnalyzer:
@@ -73,7 +86,7 @@ class LexicalAnalyzer:
             # try each token definitions
             for token_defs in self.token_definitions:
                 token_defs.fa.test_str(input_str)
-                max_match = token_defs.fa.max_match
+                max_match = token_defs.fa._max_match
                 accepted = token_defs.fa.is_accepted()
 
                 # not match at all
