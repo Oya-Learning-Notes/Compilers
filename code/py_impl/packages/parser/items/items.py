@@ -39,6 +39,30 @@ class ItemCore:
     def __eq__(self, other):
         return hash(self) == hash(other)
 
+    def __repr__(self) -> str:
+        repr_str = f'{self.production.source}'
+        repr_str += f' -> '
+
+        if self.production.target.pieces is None:
+            repr_str += '.'
+            return repr_str
+
+        found_pieces = self.production.target.pieces[:self.offset]
+        waiting_pieces = self.rest_pieces()
+
+        # found pieces part
+        for piece in found_pieces:
+            repr_str += str(piece)
+        repr_str += '.'
+
+        # waiting pieces part
+        if waiting_pieces is None:
+            return repr_str
+        for piece in waiting_pieces:
+            repr_str += str(piece)
+
+        return repr_str
+
     def all_matched(self):
         """
         Return True if this Item represent all the pieces is found in stack.
@@ -96,6 +120,10 @@ class Item:
 
     def __hash__(self) -> int:
         return hash(tuple([self.core, tuple(self.lookahead_set or set())]))
+
+    def __repr__(self) -> str:
+        repr_str = f'({self.core}, {self.lookahead_set})'
+        return repr_str
 
     def hash_of_core(self):
         """

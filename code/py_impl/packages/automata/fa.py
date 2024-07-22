@@ -18,14 +18,24 @@ class FANode[LabelType, FAChar]:
     pointers: list[tuple[FAChar, FANodeID]]
     label: LabelType | None  # label of this node
 
-    def __init__(self, is_start=False, is_end=False, nid=None, label: LabelType | None = None) -> None:
+    def __init__(
+            self,
+            is_start=False,
+            is_end=False,
+            nid=None,
+            label: LabelType | None = None,
+            pointers: list[tuple[FAChar, FANodeID]] | None = None,
+    ) -> None:
         if nid is None:
             nid = get_node_id()
+
+        if pointers is None:
+            pointers = []
 
         self.nid = nid
         self.is_start = is_start
         self.is_end = is_end
-        self.pointers = []
+        self.pointers = pointers
         self.label = label
 
     def __eq__(self, other) -> bool:
@@ -446,7 +456,12 @@ class FA[LabelType, CharType]:
                 self.minimize(new_fa=False)
             return self
 
-    def minimize(self, check_dfa: bool = False, new_fa: bool = False) -> 'FA[LabelType, CharType]':
+    def minimize(
+            self,
+            check_dfa: bool = False,
+            new_fa: bool = False,
+            skip_if_pointers_empty: bool = False
+    ) -> 'FA[LabelType, CharType]':
         """
         Try to minimize this FA.
 
@@ -475,30 +490,39 @@ class FA[LabelType, CharType]:
 
         # merge those with same hash
         for nodes_set_with_same_hash in transition_hash_dict.values():
-            self.merge_nodes(nodes_set_with_same_hash)
+            self.merge_nodes(nodes_set_with_same_hash, skip_if_pointers_empty)
 
         # remove unref node
         self.remove_unref_node()
         return self
 
-    def merge_nodes(self, nodes_set: set[FANode]) -> None:
+    def merge_nodes(self, nodes_set: set[FANode], skip_if_pointers_empty: bool = False) -> None:
         if len(nodes_set) < 2:
             return
 
         # generate standard node
-        std_node = None
+        std_node = FANode[list[LabelType], CharType](label=[])
+
         for i in nodes_set:
-            std_node = i
             if i.is_end:
                 std_node.is_end = True
             if i.is_start:
                 std_node.is_start = True
+            std_node.pointers = i.pointers
+            # add label
+            try:
+                std_node.label.extend(i.label)
+            except Exception:
+                raise RuntimeError('Could not deal with DFA Node label when merging nodes.')
+
+        # skip if needed
+        if skip_if_pointers_empty and ((std_node.pointers is None) or (len(std_node.pointers) == 0)):
+            return
+
+        # add std_node to this fa
+        self.nodes[std_node.nid] = std_node
 
         for node in self.nodes.values():
-            # set standard node
-            if std_node is None:
-                std_node = node
-
             # replace all pointers that point to nodes in this set to std node
             pointer_to_be_replaced: list[tuple[CharType, FANodeID]] = []
             for pointer in node.pointers:

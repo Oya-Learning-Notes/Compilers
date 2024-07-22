@@ -83,7 +83,7 @@ class ItemHelper:
             raise IllegalItemOffsetError(prod, offset + 1)
 
         # generate new item
-        new_item = Item(prod, offset, lookahead)
+        new_item = Item(prod, offset + 1, lookahead)
 
         # get reference of this item
         return self.get_item(new_item, write_if_not_exists)
