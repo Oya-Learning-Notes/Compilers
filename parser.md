@@ -31,7 +31,10 @@
     - [Viable Prefixes](#viable-prefixes)
   - [Recognize Prefixes](#recognize-prefixes)
     - [Valid Item](#valid-item)
-  - [SLR Parsing](#slr-parsing)
+- [SLR Parsing](#slr-parsing)
+- [CLR Parsing](#clr-parsing)
+  - [LR(1) Items](#lr1-items)
+  - [LR(1) Parse Table](#lr1-parse-table)
 - [AST (Abstract Syntax Tree)](#ast-abstract-syntax-tree)
 
 # About
@@ -632,7 +635,7 @@ Then what could be considered as the Item in top stack? $I_1 \to DE.FGH$, $I_2 \
 
 You may already found, that's what the NFA / DFA above helps us do. **So simply, if we give a Viable Prefix in Stack to DFA, then all Items included in the ending state is a valid state of this Viable Prefix.**
 
-## SLR Parsing
+# SLR Parsing
 
 Finally! We are going to talking about how the Parsing Algorithm looks like! Fisrt of all, SLR stands for Simple LR(0) Parsing. We will talk about the "Simple" in the name later.
 
@@ -654,6 +657,106 @@ By using SLR, there will be less Shift-Reduce and Reduce-Reduce conflict. *(Howe
 > If a DFA generated from CFG could always find the correct token with SLR, than it's SLR Language, otherwise it's not.
 
 Now let's try some example:
+
+# CLR Parsing
+
+CLR stands for Canonical LR(1) Parsing. But we already have SLR, why we need CLR?
+
+Checkout the example below:
+
+```
+S -> L = R
+S -> R
+L -> *R
+L -> id
+R -> L
+```
+
+![image](https://github.com/user-attachments/assets/13527aae-4250-4589-88a1-5d20f6a84aa4)
+
+The follow set is:
+
+$$
+\begin{aligned}
+  Follow(S) =& \$ \\
+  Follow(L) =& \{=,\$\} \\
+  Follow(R) =& \{=,\$\} \\
+\end{aligned}
+$$
+
+THis grammar is unambiguous, and could parse something like:
+
+```
+****id = *****id
+**id
+id
+...
+```
+
+Now let's try using SLR to parse the string below with this grammar.
+
+```
+id = id
+```
+
+Steps:
+
+```
+Stack: | id = id
+Shift
+
+Stack: id | = id
+Reduce: L -> id
+
+Stack: L | = id
+  Current state set is I2, which contains R -> L.
+  Program: Should we reduce, my SLR Parser?
+  SLR Parser: Wait a sec, let me check...
+  SLR Parser: Lookahead is "=", and "=" in Follow(R), reduce it!
+Reduce: R -> L
+
+Stack: R | = id
+Reduce: S -> R (since this is only possible move in I3)
+
+Stack: S | = id
+OMG!!! Parse Error!!!
+```
+
+The example above shows a situation that SLR Parser will failed. But why?
+
+When current non-terminal is `L` and lookahead is `=`, SLR allow us to do reduce with Production `R -> L` because that $'=' \in Follow(R)$, and this finally cause the problem.
+
+If we look into that how $=$ has been added to $Follow(R)$, we will found it's added based on following Production:
+
+$$
+S \to L = R \\
+L \to *R
+$$
+
+- The first production add $=$ into $Follow(L)$
+- The second production add $Follow(L)$ to $Follow(R)$
+
+This means the `=` symbol is in $Follow(R)$ because there is a posibility that $*R$ be reduced to $L$ and $L$ can follow something.
+
+However in case $id = id$, the $R$ inside stack $R = id$ is not structure like $*R$, so it could not be reduced to $L$, since could not deal with the following $=$. So the correct process is to leave this $L$ in stack, but not reducing it.
+
+## LR(1) Items
+
+To solve some issues in SLR and LR(0), one way is to use CLR Parser, which will use LR(1) Items when parsing.
+
+LR(1) Items is similar to LR(0) Items, but with *Lookahead Temrinal* built into the Items. So it will look like something below:
+
+$$
+L \to L .+ R,i \\
+L \to L .+ R,j \\
+L \to .L + R,k \\
+$$
+
+Notice in this case the first and second Item should be considered to different Items, since they have different lookahead. The lookahead in LR(1) Item actually refers to that what token should appear after the Reduction.
+
+For example: The lookahead of start symbol $S$ should be $\$$, since the token should appear after Reduction $S \to \cdots$ should only be $\$$ (end of input)
+
+## LR(1) Parse Table
 
 # AST (Abstract Syntax Tree)
 

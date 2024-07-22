@@ -14,33 +14,34 @@ from . import errors
 class ParseTreeNode:
     node_type: cfg.Piece
     node_content: TokenPair | None
-    pointers: list['ParseTreeNode']
+    pointers: list["ParseTreeNode"]
 
-    def __copy__(self) -> 'ParseTreeNode':
+    def __copy__(self) -> "ParseTreeNode":
         return ParseTreeNode(self.node_type, self.node_content, self.pointers)
 
     def __init__(
             self,
             node_type: cfg.Piece,
             node_content: TokenPair = None,
-            pointers: list['ParseTreeNode'] | None = None):
+            pointers: list["ParseTreeNode"] | None = None,
+    ):
         self.pointers = pointers or []
         self.node_type = node_type
         self.node_content = node_content
 
     def __repr__(self) -> str:
-        repr_str = f'Node: {self.node_type} (Point To: '
+        repr_str = f"Node: {self.node_type} (Point To: "
         for i in self.pointers:
-            repr_str += f'{i.node_type}, '
-        repr_str += ')'
+            repr_str += f"{i.node_type}, "
+        repr_str += ")"
         return repr_str
 
-    def point_to(self, nodes: Union['ParseTreeNode', list['ParseTreeNode']]) -> None:
+    def point_to(self, nodes: Union["ParseTreeNode", list["ParseTreeNode"]]) -> None:
         """
         Add a single node or list of nodes to the pointers of this node.
         """
 
-        def should_add(current_instance: 'ParseTreeNode', node: 'ParseTreeNode'):
+        def should_add(current_instance: "ParseTreeNode", node: "ParseTreeNode"):
             return current_instance != node and node not in current_instance.pointers
 
         # if the input is list
@@ -70,28 +71,37 @@ class ParseTree:
 
     For more info, checkout `parser/docs/parse_tree.md`.
     """
+
     entries: list[ParseTreeNode]
     leaves: list[ParseTreeNode]
     epsilon_leaf: ParseTreeNode
 
     _first_non_terminal_cache: int
 
-    def __init__(self, start_nodes: list[ParseTreeNode], epsilon_terminal: cfg.Terminal | None = None):
+    def __init__(
+            self,
+            start_nodes: list[ParseTreeNode],
+            epsilon_terminal: cfg.Terminal | None = None,
+    ):
         """
         Initialize this parse tree with some nodes.
 
         - Top-down: pass a list with only Entry NonTerminal to `start_nodes`
         - Bottom-up: pass a list with Terminal that match TokenPair to `start_nodes`
+
+        For more info about ``epsilon_terminal``, checkout ``docs/parse_tree.md`` Epsilon Nodes.
         """
         # shadow copy start_nodes to entries and leaves
         self.entries = copy(start_nodes)
         self.leaves = copy(start_nodes)
 
         # generate epsilon node
-        self.epsilon_leaf = ParseTreeNode(epsilon_terminal or cfg.Piece('[e]'))
+        self.epsilon_leaf = ParseTreeNode(epsilon_terminal or cfg.Piece("[e]"))
         self._first_non_terminal_cache = 0
 
-    def get_first_non_terminal_info(self, use_cache: bool = True) -> tuple[int, ParseTreeNode] | None:
+    def get_first_non_terminal_info(
+            self, use_cache: bool = True
+    ) -> tuple[int, ParseTreeNode] | None:
         """
         Return index of first node in leaves that with NonTerminal type.
 
@@ -118,7 +128,9 @@ class ParseTree:
         # not found
         return None
 
-    def derive_non_terminal(self, non_terminal_index: int, new_pieces: list[cfg.Piece] | None) -> None:
+    def derive_non_terminal(
+            self, non_terminal_index: int, new_pieces: list[cfg.Piece] | None
+    ) -> None:
         """
         Derive the left-most NonTerminal leaves into new pieces.
 
@@ -141,7 +153,9 @@ class ParseTree:
         # create nodes list for new pieces
         if new_pieces is not None:
             # not epsilon moves, generate new node and ready for insertion
-            new_nodes: list[ParseTreeNode] = [ParseTreeNode(node_type=piece) for piece in new_pieces]
+            new_nodes: list[ParseTreeNode] = [
+                ParseTreeNode(node_type=piece) for piece in new_pieces
+            ]
         else:
             # epsilon, the new nodes will be empty
             non_terminal_node.pointers.append(copy(self.epsilon_leaf))
@@ -151,7 +165,11 @@ class ParseTree:
         non_terminal_node.pointers.extend(new_nodes)
 
         # insert new nodes to previous place of the parent node
-        self.leaves = self.leaves[:non_terminal_index] + new_nodes + self.leaves[non_terminal_index + 1:]
+        self.leaves = (
+                self.leaves[:non_terminal_index]
+                + new_nodes
+                + self.leaves[non_terminal_index + 1:]
+        )
 
     def is_valid(self) -> bool:
         """
@@ -172,7 +190,7 @@ class ParseTree:
         return True
 
     def to_graphviz(self) -> gv.Digraph:
-        graph = gv.Digraph(name='Parse Tree')
+        graph = gv.Digraph(name="Parse Tree")
 
         tree_node_list: list[ParseTreeNode] = copy(self.entries)
 

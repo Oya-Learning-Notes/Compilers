@@ -5,13 +5,12 @@ from lexical_analyzer import TokenPair
 from .. import errors as general_err
 from ..parse_tree import ParseTree, ParseTreeNode
 
-
-# __all__ = [
-#     'LLParser',
-#     'LLParseTable',
-#     'DerivationNotFoundError',
-#     'ParseTableConflictError',
-# ]
+__all__ = [
+    'LLParser',
+    'LLParseTable',
+    'NoValidMove',
+    'ParseTableConflictError',
+]
 
 
 class LLParseTable:

@@ -78,8 +78,6 @@ def main():
         # E = T | T + E
         # T = (E) | int | int * T
 
-        # E = T + E = (E) + E
-
         # S = E EOF
         Production(source=non_terminal_s, target=Derivation(pieces=[non_terminal_e, terminal_eof])),
         # E = T F
@@ -124,7 +122,7 @@ def main():
     print('---------------')
 
     # try generating parse table
-    parse_table = llparser.LLParseTable(cfg_system=cfg_sys_for_left_factoring_test)
+    parse_table = llparser.LLParseTable(cfg_system=cfg_sys)
 
     print(f'\nParse dict:')
     pprint(parse_table.parse_dict)
