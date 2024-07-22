@@ -89,5 +89,5 @@ class FADiGraph[LabelType, CharType]:
 
         return self
 
-    def get_graph(self):
+    def get_graph(self) -> gv.Digraph:
         return self._graphviz_obj

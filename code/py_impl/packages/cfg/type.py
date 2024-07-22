@@ -20,6 +20,9 @@ class Piece:
         return hash(self.name)
 
     def __eq__(self, other):
+        if other is None:
+            return False
+
         return self.name == other.name
 
     def __repr__(self):
@@ -218,14 +221,10 @@ class CFGSystem:
 
         This method currently do NOT support CFG system that may cause Left Recursive.
         """
-
-        logger.debug(f'Enter calc first set of {piece}')
         try:
             return self.first_sets[piece]
         except KeyError:
             pass
-
-        logger.debug(f'Calculating first set of {piece}')
 
         # circular dependency detected, return empty set first
         if enable_recur_detect and (piece in self._recur_runtime_set_first):
