@@ -7,6 +7,16 @@ This is different from the thought when designing Finite Automata, where we use 
 unique across different nodes)_ . Actually I was regret that I didn't use direct instance ref at that time for `fa`
 module.
 
+## Epsilon Node
+
+When initializing a ParseTree, it's required to provide an $\varepsilon$ terminal.
+
+This is because we use `None` to represent $\varepsilon$ in this packages, however when a node is derived into $\varepsilon$, we need to actually link it to a Epsilon node, otherwise this node will be left in the leaves as non-terminal.
+
+Once a $\varepsilon$ terminal has been pass to parse tree, the parse tree will use such terminal to generate **Epsilon Node** everytime it's used.
+
+We could not directly cache the *Epsilon Node*, since different node that has been derived to $\varepsilon$ should actually link to it's own child *Epsilon Node*.
+
 # Design of ParseTree
 
 The ParseTree class should be designed to serve several different Parsing Algorithm for example `LL(1)`, `SLR`,
@@ -50,3 +60,4 @@ the three
 nodes, then replace `node2, node3, node4` in `entries` with `node1`.
 
 When finished, `entries` should become a list of single Node that matches the Entry NonTerminal type.
+

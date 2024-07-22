@@ -18,7 +18,7 @@ class FANode[LabelType, FAChar]:
     pointers: list[tuple[FAChar, FANodeID]]
     label: LabelType | None  # label of this node
 
-    def __init__(self, is_start=False, is_end=False, nid=None, label=None) -> None:
+    def __init__(self, is_start=False, is_end=False, nid=None, label: LabelType | None = None) -> None:
         if nid is None:
             nid = get_node_id()
 
@@ -135,8 +135,8 @@ class FANode[LabelType, FAChar]:
 
 
 class FA[LabelType, CharType]:
-    type FANodeType = FANode[LabelType, CharType]
-
+    # store nodes in this automaton
+    # pattern: nodes[<node_id>] = node_instance
     nodes: dict[FANodeID, FANode[LabelType, CharType]]
     _current_states: set[FANode[LabelType, CharType]]
     _max_match: int
@@ -166,13 +166,12 @@ class FA[LabelType, CharType]:
         return repr_str
 
     def __copy__(self):
+        """
+        Make a shadow copy of this Automaton
+        """
         return FA(nodes_dict=self.nodes)
 
-    def to_graphviz(self) -> gv.Digraph:
-        pass
-        # create a new graphviz directed graph object.
-
-    def is_dfa(self):
+    def is_dfa(self) -> bool:
         """
         Check if this Automaton is Determined Finite Automaton
         """
@@ -182,17 +181,24 @@ class FA[LabelType, CharType]:
         return True
 
     def get_start_states(self, find_epsilons: bool = False) -> set[FANode[LabelType, CharType]]:
+        """
+        Get a set of start states of this automaton.
+
+        Params:
+
+        - ``find_epsilons`` If `true`, will return the epsilon state set of the start states.
+        """
         if not find_epsilons:
             return set(n for (nid, n) in self.nodes.items() if n.is_start)
         return self.find_epsilons(set(n for (nid, n) in self.nodes.items() if n.is_start))
 
-    def get_current_state(self):
+    def get_current_state(self) -> set[FANode[LabelType, CharType]]:
         return self._current_states
 
-    def get_end_states(self) -> set[FANode]:
+    def get_end_states(self) -> set[FANode[LabelType, CharType]]:
         return self.find_epsilons(set(n for nid, n in self.nodes.items() if n.is_end))
 
-    def init_state(self) -> 'FA':
+    def init_state(self) -> 'FA[LabelType, CharType]':
         """
         Set the initial state of this FA.
 
@@ -204,6 +210,9 @@ class FA[LabelType, CharType]:
         return self
 
     def find_epsilons(self, input_states: set[FANode[LabelType, CharType]]) -> set[FANode[LabelType, CharType]]:
+        """
+        Find the epsilon closure of the input_states
+        """
         # iterate all nodes to find epsilon moves
         it_nodes = input_states
         while True:
@@ -256,7 +265,7 @@ class FA[LabelType, CharType]:
 
         return all_possible_input
 
-    def move_next(self, next_input: str) -> bool:
+    def move_next(self, next_input: CharType) -> bool:
         """
         Try to move this FA to next states with given input
 
@@ -427,10 +436,14 @@ class FA[LabelType, CharType]:
             nodes_dict_for_fa_init[node.nid] = node
 
         if new_fa:
-            return FA(nodes_dict=nodes_dict_for_fa_init).minimize(new_fa=False)
+            new_fa = FA(nodes_dict=nodes_dict_for_fa_init)
+            if minimize:
+                new_fa.minimize(new_fa=False)
+            return new_fa
         else:
             self.nodes = nodes_dict_for_fa_init
-            self.minimize(new_fa=False)
+            if minimize:
+                self.minimize(new_fa=False)
             return self
 
     def minimize(self, check_dfa: bool = False, new_fa: bool = False) -> 'FA[LabelType, CharType]':

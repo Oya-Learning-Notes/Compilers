@@ -1,6 +1,15 @@
 from dataclasses import dataclass
 from loguru import logger
 
+__all__ = [
+    'Piece',
+    'Terminal',
+    'NonTerminal',
+    'CFGSystem',
+    'Production',
+    'Derivation',
+]
+
 
 @dataclass
 class Piece:
@@ -61,7 +70,7 @@ class CFGSystem:
     production_list: list[Production]
 
     # generated production dict, key is source, value is set of Derivation
-    production_dict: dict[NonTerminal, set[Derivation]]
+    production_dict: dict[NonTerminal, set[Production]]
 
     # indicate the parsing entry of this CFG.
     # Could be NonTerminal or Terminal, usually to be NonTerminal
@@ -131,7 +140,7 @@ class CFGSystem:
                 self.production_dict[source] = set()
 
             # add new derivation to set
-            self.production_dict[source].add(prod.target)
+            self.production_dict[source].add(prod)
 
     def get_all_derivation(self, source: NonTerminal) -> set[Derivation]:
         """
@@ -140,7 +149,11 @@ class CFGSystem:
         Raise KeyError if `source` not in this CFG productions
         """
         # notice the data depend on self.generate_production_dict
-        return self.production_dict[source]
+        derivations: set[Derivation] = set()
+        for prod in self.production_dict[source]:
+            derivations.add(prod.target)
+
+        return derivations
 
     def generate_first_set(self) -> None:
         # enable recursive tracking (circular recursive)
@@ -153,6 +166,51 @@ class CFGSystem:
             for piece in self.used_pieces:
                 self.calc_first_set(piece)
             self._is_recur_when_calc_first = False
+
+    def calc_first_set_of_pieces(self, pieces: list[Piece]) -> set[Piece | None]:
+        """
+        Calculate FIRST set of a custom pieces.
+
+        When constructing some LR parse table, we may need to calculate the first set of a list of pieces.
+
+        Notice:
+
+        - All pieces in list should be in used_pieces set.
+        - Please ensure call ``generate_first_set()`` before calling this method.
+        """
+        # raise runtime error if list empty
+        if len(pieces) == 0:
+            raise RuntimeError('Pieces could not be empty when calculating its FIRST set.')
+
+        # the flag indicates if all previous scanned piece could be None.
+        contains_epsilon_until_now: bool = True
+        # store the result of calculated first set
+        res_first_set: set[Terminal | None] = set()
+
+        for piece in pieces:
+            # retrieve first set for this piece
+            first_set_for_current_piece = self.first_sets[piece]
+
+            # Add the first set of current piece to the result if previous pieces could all be derived into epsilon
+            if contains_epsilon_until_now:
+                res_first_set.update(first_set_for_current_piece)
+            else:
+                break
+
+            # if current piece could not be derived into epsilon, update flag to false.
+            if not (None in first_set_for_current_piece):
+                contains_epsilon_until_now = False
+
+        # if not all pieces could be converted into epsilon, then epsilon not in ret_first_set
+        if not contains_epsilon_until_now:
+            try:
+                res_first_set.remove(None)
+            except KeyError:
+                pass
+        else:
+            res_first_set.add(None)
+
+        return res_first_set
 
     def calc_first_set(self, piece: Piece, enable_recur_detect: bool = True) -> set[Terminal | None]:
         """
