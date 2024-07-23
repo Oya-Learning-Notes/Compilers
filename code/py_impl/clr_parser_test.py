@@ -3,7 +3,6 @@ from cfg import *
 import reg_exp as reg
 import lexical_analyzer as la
 from pprint import pprint
-from parser import ll as llparser
 
 
 def main():
@@ -63,6 +62,11 @@ def main():
     non_terminal_t = NonTerminal(name='T')
     non_terminal_u = NonTerminal(name='U')
 
+    non_terminal_s_pi = NonTerminal(name='S\'')
+    non_terminal_c = NonTerminal(name='C')
+    terminal_c = Terminal(name='c')
+    terminal_d = Terminal(name='d')
+
     cfg_sys_for_left_factoring_test = CFGSystem(
         production_list=[
             Production(source=non_terminal_s, target=Derivation(pieces=[non_terminal_e, terminal_eof])),
@@ -100,16 +104,21 @@ def main():
         Production(source=non_terminal_u, target=Derivation(pieces=[terminal_mul, non_terminal_t])), ],
         entry=non_terminal_s)
 
-    non_terminal_s_pi = NonTerminal(name='S\'')
-    non_terminal_c = NonTerminal(name='C')
-    terminal_c = Terminal(name='c')
-    terminal_d = Terminal(name='d')
-
     cfg_sys_on_dragon_book = CFGSystem(
         production_list=[
             Production(source=non_terminal_s_pi, target=Derivation(pieces=[non_terminal_s, terminal_eof])),
             Production(source=non_terminal_s, target=Derivation(pieces=[non_terminal_c, non_terminal_c])),
             Production(source=non_terminal_c, target=Derivation(pieces=[terminal_c, non_terminal_c])),
+            Production(source=non_terminal_c, target=Derivation(pieces=[terminal_d]))
+        ],
+        entry=non_terminal_s_pi
+    )
+
+    cfg_production_could_cause_reduce_reduce_conflict = CFGSystem(
+        production_list=[
+            Production(source=non_terminal_s_pi, target=Derivation(pieces=[non_terminal_s, terminal_eof])),
+            Production(source=non_terminal_s, target=Derivation(pieces=[non_terminal_c, non_terminal_c])),
+            Production(source=non_terminal_c, target=Derivation(pieces=[non_terminal_c, non_terminal_c])),
             Production(source=non_terminal_c, target=Derivation(pieces=[terminal_d]))
         ],
         entry=non_terminal_s_pi
@@ -138,7 +147,7 @@ def main():
     print('---------------')
 
     # try generating parse table
-    stack_automaton = parser.StackAutomaton(cfg_sys_on_dragon_book)
+    stack_automaton = parser.lr.StackAutomaton(cfg_sys_on_dragon_book)
     gv_ins = stack_automaton.to_graphviz()
 
     gv_ins.render(directory='./output', view=True)
