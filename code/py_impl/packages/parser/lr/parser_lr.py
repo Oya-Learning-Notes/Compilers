@@ -15,42 +15,24 @@ __all__ = [
 ]
 
 
-@dataclass
-class ParserStackItem:
-    token: TokenPair
-    fa_state: set[FANode[list[Item], Piece]]
-
-    def get_valid_items(self) -> list[Item]:
-        """
-        Get valid items indicated by this set of states.
-
-        Return empty list if valid items not found.
-        """
-        valid_items: list[Item] = []
-
-        # states empty, no valid item
-        if (self.fa_state is None) or (len(self.fa_state) == 0):
-            return valid_items
-
-        # loop state
-        for st in self.fa_state:
-            item_list = st.label
-            valid_items.extend(item_list)
-
-        return valid_items
-
-
 class LRParserBase:
     """
     Base class for all LR parsers.
+
+    Rewrites:
 
     To create new LR Parser, we need to re-write the following methods:
 
     - ``_generate_automaton()`` Rewrite to generate the proper Stack Automaton for the LR Parser.
     - ``_get_lookahead()`` Rewrite if you want to decide how to convert a token to its corresponding lookahead instance.
     - ``_is_lookahead_match()`` Determine how to judge whether current lookahead match the requirement of the Item.
+
+    Fields:
+    - ``_parser_type`` The string that represents the type of the parser. E.g.: SLR, CLR, ...
     """
     cfg_sys: CFGSystem
+
+    _parser_type: str = 'Base LR'
 
     _token_list: list[TokenPair]
 
@@ -123,8 +105,81 @@ class LRParserBase:
         if len(valid_items) == 0:
             return None
 
-        # check if lookahead matches.
+        # check all items in current states, if they matched the current lookahead?
+        matched_items: set[Item] = set()
+        for item in valid_items:
+
+            # only all matched items could be used for reduction action.
+            if not (item.core.all_matched()):
+                continue
+
+            # if lookahead matched, add to matched_item list.
+            if self._is_lookahead_match(item):
+                matched_items.add(item)
+
+        matched_count = len(matched_items)
+
+        # if no item match, should not reduce
+        if matched_count == 0:
+            return None
+
+        # there should be at most one matched item
+        if matched_count > 1:
+            raise ReduceReduceConflict(conflict_item=matched_items, parser_type=self._parser_type)
+
+        # retrieve the only matched item
+        single_match_item: Item = None
+        for i in matched_items:
+            single_match_item = i
+
+        assert single_match_item is not None
+        return single_match_item.core.production
+
+    def perform_reduction(self, production: Production) -> None:
+        """
+        Perform Reduction operation on the Stack with the instruction of given Production.
+        """
         # todo
+
+        # retrieve info
+        source = production.source
+        target_pieces = production.target.pieces
+
+        # determine reduce size.
+        # Here reduce size means the count of the stack element that is going to be reduced.
+        reduce_size: int = -1
+        if target_pieces is None:
+            reduce_size = 0
+        else:
+            reduce_size = len(target_pieces)
+
+        # check if current Reduction could actually be performed.
+        # that is: check if the top part of the stack matches the target pieces of this production.
+        stack_top = self._stack[-reduce_size:]
+        stack_top_pieces = [i.piece for i in stack_top]
+        # raise error if pieces not match
+        if not (stack_top_pieces == target_pieces):
+            raise InvalidReductionError(production_target=target_pieces, stack_top=stack_top_pieces)
+
+        # reduction could be successfully performed.
+
+        # todo
+        # remove previous pieces
+        self._stack = self._stack[:-reduce_size]
+
+        # generate item for new pieces
+        # if the stack is not empty after removing target pieces, means we could start matching at the state of top of
+        # the stack.
+        start_states: set[FANode] | None = None
+        if len(self._stack) > 0:
+            start_states = self._stack[-1].fa_state
+        new_stack_item_list = self.stack_automaton.match_stack(stack=[source], start_states=start_states)
+
+        # add new item list to stack
+        # here new stack item list should always have only one element. This is because the source part of a Production
+        # should always be a single NonTerminal.
+        assert len(new_stack_item_list) == 1
+        self._stack.append(new_stack_item_list[0])
 
     def _generate_automaton(self):
         """
@@ -154,3 +209,35 @@ class CLRParser(LRParserBase):
     of the augmented grammar. S' -> S$, this item should have the None as the lookahead.
     """
     pass
+
+
+class ReduceReduceConflict(Exception):
+    """
+    Raise when more than one reduce operation could be performed at the same time.
+    """
+
+    def __init__(self, conflict_item: set[Item], parser_type: str | None = None):
+        """
+        Params:
+
+        - conflict_item A set of the conflict item.
+        - parser_type String represents the type of the parser. E.g.: CLR, LR(1), ...
+        """
+        parser_type_str = ''
+        if parser_type is not None:
+            parser_type_str += f' with type {parser_type}'
+
+        error_msg = f'Reduce-Reduce error occurred in parser{parser_type_str}. Set of conflict items: {conflict_item}'
+
+
+class InvalidReductionError(general_err.ParseErrorBase):
+    """
+    Raise when LR Parser is intend to perform a Reduction with instruction of a Production. However the target pieces
+    of this production doesn't match the stack top of the parser state.
+    """
+
+    def __init__(self, production_target: list[Piece], stack_top: list[Piece]):
+        super().__init__(
+            f'A Reduction by Production with target pieces {production_target} could not been performed, '
+            f'since the top part of parser Stack {stack_top} does not match such pieces.'
+        )

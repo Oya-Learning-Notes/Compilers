@@ -86,11 +86,10 @@ class LexicalAnalyzer:
             # try each token definitions
             for token_defs in self.token_definitions:
                 token_defs.fa.test_str(input_str)
-                max_match = token_defs.fa._max_match
-                accepted = token_defs.fa.is_accepted()
+                max_match = token_defs.fa.max_match
 
                 # not match at all
-                if not accepted:
+                if max_match < 1:
                     continue
 
                 has_match = True

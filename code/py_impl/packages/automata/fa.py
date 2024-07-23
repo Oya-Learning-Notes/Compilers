@@ -207,7 +207,10 @@ class FA[LabelType, CharType]:
         return self.find_epsilons(set(n for (nid, n) in self.nodes.items() if n.is_start))
 
     def get_current_state(self) -> set[FANode[LabelType, CharType]]:
-        return self._current_states
+        """
+        Return a copy of the set including the current state of this FA.
+        """
+        return copy(self._current_states)
 
     def set_current_state(self, states: set[FANode[LabelType, CharType]]) -> None:
         if len(states) == 0:
@@ -300,8 +303,11 @@ class FA[LabelType, CharType]:
         # valid move, update state
         self._max_match += 1
         self._current_states = next_state
+
+        # if current state is accepted, update max_match
         if self.is_accepted():
             self.max_match = self._max_match
+
         return True
 
     def _move_next(

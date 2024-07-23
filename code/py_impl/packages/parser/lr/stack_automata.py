@@ -1,4 +1,5 @@
 from copy import copy
+from dataclasses import dataclass
 from graphviz import Digraph
 
 from cfg import *
@@ -10,7 +11,33 @@ from automata.visualize import FADiGraph
 __all__ = [
     'StackAutomaton',
     'EntryPatternNotMatch',
+    'ParserStackItem',
 ]
+
+
+@dataclass
+class ParserStackItem:
+    piece: Piece
+    fa_state: set[FANode[list[Item], Piece]]
+
+    def get_valid_items(self) -> list[Item]:
+        """
+        Get valid items indicated by this set of states.
+
+        Return empty list if valid items not found.
+        """
+        valid_items: list[Item] = []
+
+        # states empty, no valid item
+        if (self.fa_state is None) or (len(self.fa_state) == 0):
+            return valid_items
+
+        # loop state
+        for st in self.fa_state:
+            item_list = st.label
+            valid_items.extend(item_list)
+
+        return valid_items
 
 
 class StackAutomaton:
@@ -140,7 +167,7 @@ class StackAutomaton:
         gv_instance = FADiGraph(get_node_label=self.get_dfa_node_label)
         return gv_instance.from_fa(self._fa).get_graph()
 
-    def match_stack(self, stack: list[Piece], start_states: set[FANode] | None = None):
+    def match_stack(self, stack: list[Piece], start_states: set[FANode] | None = None) -> list[ParserStackItem] | None:
         """
         Try matching a list of Pieces using this Stack Automaton.
 
@@ -161,19 +188,21 @@ class StackAutomaton:
         else:
             self._fa.set_current_state(start_states)
 
-        # try matching
-        valid: bool = self._fa.move_next_str(stack)
-        if not valid:
-            return False
+        # store the generated ParserStackItem
+        stack_items: list[ParserStackItem] = []
 
-        # match succeed, get states and retrieve items
-        current_states = self._fa.get_current_state()
-        valid_items: list[Item] = []
-        for st in current_states:
-            # label of Stack Automaton DFA should be list of Items
-            valid_items.extend(st.label)
+        # iterate through the stack items and try moving the FA.
+        for stack_elem in stack:
+            valid_move = self._fa.move_next(stack_elem)
+            # if matched failed, return None
+            if not valid_move:
+                return None
+            # match success, create new StackItem
+            new_stack_item = ParserStackItem(piece=stack_elem, fa_state=self._fa.get_current_state())
+            # add new stack item to return list.
+            stack_items.append(new_stack_item)
 
-        return valid_items
+        return stack_items
 
     @staticmethod
     def get_dfa_node_label(nid: str, node: FANode[list[Item], Piece]) -> str:
