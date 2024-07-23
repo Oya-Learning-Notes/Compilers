@@ -2,8 +2,8 @@ from copy import copy
 from graphviz import Digraph
 
 from cfg import *
-from .items import *
-from . import errors as general_err
+from ..items import *
+from .. import errors as general_err
 from automata import FA, FANode
 from automata.visualize import FADiGraph
 
@@ -20,7 +20,7 @@ class StackAutomaton:
     # items helper for this automaton
     _items_helper: ItemHelper
 
-    _fa: FA
+    _fa: FA[list[Item], Piece]
 
     def __init__(self, cfg_sys: CFGSystem):
         self.cfg_sys = cfg_sys
@@ -140,10 +140,51 @@ class StackAutomaton:
         gv_instance = FADiGraph(get_node_label=self.get_dfa_node_label)
         return gv_instance.from_fa(self._fa).get_graph()
 
+    def match_stack(self, stack: list[Piece], start_states: set[FANode] | None = None):
+        """
+        Try matching a list of Pieces using this Stack Automaton.
+
+        Params:
+
+        - ``stack`` A list of Pieces. Could be the whole or part of the Stack.
+        - ``start_states`` Specified what states the FA should start from when try matching this list of Pieces. Use
+        initial state if not specified.
+
+        Rets:
+
+        - ``list[Item]`` If valid for current stack if match success, return list of all valid Items in such state.
+        - ``None`` If could not match the stack with viable prefixes.
+        """
+        # determine and set start state for Stack Automaton.
+        if start_states is None:
+            self._fa.init_state()
+        else:
+            self._fa.set_current_state(start_states)
+
+        # try matching
+        valid: bool = self._fa.move_next_str(stack)
+        if not valid:
+            return False
+
+        # match succeed, get states and retrieve items
+        current_states = self._fa.get_current_state()
+        valid_items: list[Item] = []
+        for st in current_states:
+            # label of Stack Automaton DFA should be list of Items
+            valid_items.extend(st.label)
+
+        return valid_items
+
     @staticmethod
     def get_dfa_node_label(nid: str, node: FANode[list[Item], Piece]) -> str:
+        """
+        This static method is used when determine how to determine the label when generating DOT graph.
+
+        This method should not be directly called by user, but could be overridden if needed.
+        """
         node_label_str = ''
-        deduplicated_label = list(set(node.label))
+        # deduplicated_label = list(set(node.label))
+        deduplicated_label = node.label
         for item in deduplicated_label:
             node_label_str += str(item)
             node_label_str += '\n'

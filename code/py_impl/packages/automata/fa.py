@@ -148,7 +148,11 @@ class FA[LabelType, CharType]:
     # store nodes in this automaton
     # pattern: nodes[<node_id>] = node_instance
     nodes: dict[FANodeID, FANode[LabelType, CharType]]
+
+    # store current set of active states.
+    # empty set should represent this machine has stuck.
     _current_states: set[FANode[LabelType, CharType]]
+
     _max_match: int
     max_match: int
 
@@ -204,6 +208,11 @@ class FA[LabelType, CharType]:
 
     def get_current_state(self) -> set[FANode[LabelType, CharType]]:
         return self._current_states
+
+    def set_current_state(self, states: set[FANode[LabelType, CharType]]) -> None:
+        if len(states) == 0:
+            raise RuntimeError('Could not set current state to an empty set, which representing FA stuck.')
+        self._current_states = states
 
     def get_end_states(self) -> set[FANode[LabelType, CharType]]:
         return self.find_epsilons(set(n for nid, n in self.nodes.items() if n.is_end))
@@ -277,12 +286,15 @@ class FA[LabelType, CharType]:
 
     def move_next(self, next_input: CharType) -> bool:
         """
-        Try to move this FA to next states with given input
+        Try to move this FA to next states with given input, update current state.
 
         Return `True` if this is a valid move, else return `False`.
         """
         next_state = self._move_next(prev_states=self._current_states, next_input=next_input)
+
+        # if move failed, update state to empty set, return False.
         if next_state is None:
+            self._current_states = set()
             return False
 
         # valid move, update state
@@ -295,7 +307,8 @@ class FA[LabelType, CharType]:
     def _move_next(
             self,
             prev_states: set[FANode[LabelType, CharType]],
-            next_input: CharType) -> set[FANode[LabelType, CharType]] | None:
+            next_input: CharType
+    ) -> set[FANode[LabelType, CharType]] | None:
         """
         Try to find the next states with given previous state in this FA.
 
@@ -303,7 +316,11 @@ class FA[LabelType, CharType]:
 
         - `input` Should be a single character.
 
-        Return set of the new states if move valid, else return None
+        Return set of the new states if move valid, else return None.
+
+        Notice:
+
+        This method should NOT has any side effect to the current FA.
         """
 
         # no active state, FA stuck.
@@ -364,6 +381,8 @@ class FA[LabelType, CharType]:
     def is_accepted(self):
         """
         Check if FA currently in an Accept state.
+
+        If one of the current state is the end state, this automaton is accepted in this state. Else is not.
         """
         for state in self._current_states:
             if state.is_end:

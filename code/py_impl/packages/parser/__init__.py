@@ -1,4 +1,3 @@
 from . import ll
-from . import clr
+from . import lr
 from .errors import *
-from .stack_automata import *
