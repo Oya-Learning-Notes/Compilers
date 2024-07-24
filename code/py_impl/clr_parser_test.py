@@ -6,7 +6,16 @@ from pprint import pprint
 
 
 def main():
-    program_str = '1+3+2$'
+    program_str = '5*((1+2)*3)$'
+    # 1+3+2$
+    # | int + int + int eof
+    # int | + int + int eof
+    # int U | + int + int eof
+    # T | + int + int eof
+    # T + | int + int eof
+    # T + int | + int eof
+    # T + int U | ..
+    # T + T | + int eof
 
     # Lexical Analyzer Part
 
@@ -67,14 +76,21 @@ def main():
     terminal_c = Terminal(name='c')
     terminal_d = Terminal(name='d')
 
-    cfg_sys_for_left_factoring_test = CFGSystem(
+    cfg_sys_without_left_factoring = CFGSystem(
         production_list=[
+            # S -> E$
             Production(source=non_terminal_s, target=Derivation(pieces=[non_terminal_e, terminal_eof])),
-            Production(source=non_terminal_e, target=Derivation(pieces=[non_terminal_e, terminal_add, non_terminal_e])),
-            # Production(source=non_terminal_e, target=Derivation(pieces=[non_terminal_e, terminal_mul, non_terminal_e])),
-            # Production(source=non_terminal_e,
-            #            target=Derivation(pieces=[terminal_left_para, non_terminal_e, terminal_right_para])),
-            Production(source=non_terminal_e, target=Derivation(pieces=[terminal_int]))
+            # E -> T + E
+            Production(source=non_terminal_e, target=Derivation(pieces=[non_terminal_t, terminal_add, non_terminal_e])),
+            # E -> T
+            Production(source=non_terminal_e, target=Derivation(pieces=[non_terminal_t])),
+            # T -> (E)
+            Production(source=non_terminal_t,
+                       target=Derivation(pieces=[terminal_left_para, non_terminal_e, terminal_right_para])),
+            # T -> int
+            Production(source=non_terminal_t, target=Derivation(pieces=[terminal_int])),
+            # T -> T * T
+            Production(source=non_terminal_t, target=Derivation(pieces=[non_terminal_t, terminal_mul, non_terminal_t]))
         ],
         entry=non_terminal_s
     )
@@ -146,11 +162,22 @@ def main():
         print(f'{k} -> {v}')
     print('---------------')
 
-    # try generating parse table
-    stack_automaton = parser.lr.StackAutomaton(cfg_sys_on_dragon_book)
-    gv_ins = stack_automaton.to_graphviz()
+    # try generating default stack automaton
+    stack_automaton = parser.lr.StackAutomaton(cfg_sys_without_left_factoring)
 
+    # show graph of that automaton
+    gv_ins = stack_automaton.to_graphviz()
     gv_ins.render(directory='./output', view=True)
+
+    # create parser
+    lr_parser = parser.lr.LRParserBase(
+        cfg_sys=cfg_sys_without_left_factoring,
+        epsilon_terminal=Terminal(name='[e]')
+    )
+
+    parse_tree = lr_parser.parse(program_token_list)
+
+    parse_tree.to_graphviz().render(directory='./output', view=True)
 
 
 if __name__ == '__main__':
