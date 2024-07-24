@@ -1,5 +1,6 @@
 from copy import copy
 from dataclasses import dataclass
+from loguru import logger
 
 from cfg import *
 from automata import FA, FANode
@@ -7,6 +8,7 @@ from automata.visualize import FADiGraph
 from lexical_analyzer import TokenPair
 
 from ..items import *
+from ..parse_tree import *
 from .stack_automata import *
 from .. import errors as general_err
 
@@ -42,11 +44,22 @@ class LRParserBase:
     # list of unexamined token of the parser
     _unexamined: list[TokenPair]
 
+    # parse tree object for the parser.
+    _parse_tree: ParseTree
+
+    # a terminal that used to represent the epsilon derivation in parse tree.
+    _epsilon_terminal: Terminal | None
+
     # store the stack automaton for this parser
     stack_automaton: StackAutomaton
 
-    def __init__(self, cfg_sys: CFGSystem):
+    def __init__(
+            self,
+            cfg_sys: CFGSystem,
+            epsilon_terminal: Terminal | None = None,
+    ):
         self.cfg_sys = cfg_sys
+        self._epsilon_terminal = epsilon_terminal
         self._generate_automaton()
 
     def init_state(self, token_list: list[TokenPair]) -> 'LRParserBase':
@@ -58,7 +71,52 @@ class LRParserBase:
         self._unexamined = token_list[:]
         # initialize the stack
         self._stack = []
+
+        # initialize parse tree
+        parse_tree_nodes: list[ParseTreeNode] = []
+        # convert all tokens in token_list into ParseTreeNode.
+        for token in self._token_list:
+            parse_tree_nodes.append(
+                ParseTreeNode(node_type=token.to_terminal(), node_content=token)
+            )
+        # init parse tree.
+        self._parse_tree = ParseTree(
+            parse_tree_nodes,
+            epsilon_terminal=self._epsilon_terminal,
+        )
+
         return self
+
+    def parse(self, token_list: list[TokenPair]) -> ParseTree | None:
+        # initial parser state
+        self.init_state(token_list)
+
+        # parse until parse tree valid or all token used
+        while not self._parse_tree.is_valid_for_bottom_up():
+            logger.debug(f'Len of entries: {len(self._parse_tree.entries)}')
+            # check if we should perform reduction
+            reduce_prod = self._should_reduce()
+            # perform reduction if should
+            if reduce_prod is not None:
+                logger.debug(f'Reduce with perduction {reduce_prod}')
+                self.perform_reduction(reduce_prod)
+            # else, perform shift
+            else:
+                logger.debug(f'Shift')
+                self.perform_shift()
+            logger.debug(f'Stack after op: {self._stack}')
+
+        # error detection part
+
+        if len(self._unexamined) > 0:
+            general_err.ParseErrorBase(f'Parse Tree has been fully reduced with unexamined tokens {token_list}')
+
+        if self._parse_tree.is_valid():
+            general_err.ParseErrorBase(
+                'Could not successfully reduced into a valid parse tree with all tokens already used')
+
+        # all good, return parse tree
+        return self._parse_tree
 
     def _get_lookahead(self) -> Terminal | None:
         """
@@ -69,7 +127,7 @@ class LRParserBase:
         if len(self._unexamined) == 0:
             return None
 
-        return Terminal(name=self._unexamined[-1].token_type)
+        return Terminal(name=self._unexamined[0].token_type)
 
     def _is_lookahead_match(self, item: Item) -> bool:
         """
@@ -139,7 +197,6 @@ class LRParserBase:
         """
         Perform Reduction operation on the Stack with the instruction of given Production.
         """
-        # todo
 
         # retrieve info
         source = production.source
@@ -158,14 +215,21 @@ class LRParserBase:
         stack_top = self._stack[-reduce_size:]
         stack_top_pieces = [i.piece for i in stack_top]
         # raise error if pieces not match
-        if not (stack_top_pieces == target_pieces):
+        # if target pieces is None, means target is epsilon, no need to check
+        if (target_pieces is not None) and (not (stack_top_pieces == target_pieces)):
             raise InvalidReductionError(production_target=target_pieces, stack_top=stack_top_pieces)
 
         # reduction could be successfully performed.
 
-        # todo
         # remove previous pieces
-        self._stack = self._stack[:-reduce_size]
+        if reduce_size > 0:
+            self._stack = self._stack[:-reduce_size]
+
+        # update parse tree
+        self._parse_tree.reduce_node(
+            start_index=len(self._stack),
+            reduce_size=reduce_size,
+            new_piece=source)
 
         # generate item for new pieces
         # if the stack is not empty after removing target pieces, means we could start matching at the state of top of
@@ -175,11 +239,46 @@ class LRParserBase:
             start_states = self._stack[-1].fa_state
         new_stack_item_list = self.stack_automaton.match_stack(stack=[source], start_states=start_states)
 
+        # special judge when source if entry. (since stack automaton could not match the true entry)
+        if source == self.cfg_sys.entry:
+            self._stack.append(ParserStackItem(piece=source, fa_state=set()))
+            return
+
+        # raise error if the stack could not be matched using the Stack Automaton after reduction.
+        if new_stack_item_list is None:
+            raise ReductionStateError()
+
         # add new item list to stack
         # here new stack item list should always have only one element. This is because the source part of a Production
         # should always be a single NonTerminal.
         assert len(new_stack_item_list) == 1
         self._stack.append(new_stack_item_list[0])
+
+    def perform_shift(self):
+        # raise error if it could not shift
+        if len(self._unexamined) == 0:
+            raise RuntimeError(
+                'Could not perform Shift operation for this parser, since no more tokens in unexamined list.')
+
+        # get first token in unexamined
+        token_terminal_to_be_shift = self._unexamined.pop(0).to_terminal()
+
+        # go through the fa
+        start_state: set[FANode] | None = None
+        if len(self._stack) > 0:
+            start_state = self._stack[-1].fa_state
+        parser_item_list = self.stack_automaton.match_stack(stack=[token_terminal_to_be_shift],
+                                                            start_states=start_state)
+
+        # raise error if shift breaks viable prefixes
+        if parser_item_list is None:
+            raise ShiftStateError()
+
+        assert len(parser_item_list) == 1
+        new_parser_item = parser_item_list[0]
+
+        # add new item to stack
+        self._stack.append(new_parser_item)
 
     def _generate_automaton(self):
         """
@@ -240,4 +339,26 @@ class InvalidReductionError(general_err.ParseErrorBase):
         super().__init__(
             f'A Reduction by Production with target pieces {production_target} could not been performed, '
             f'since the top part of parser Stack {stack_top} does not match such pieces.'
+        )
+
+
+class ReductionStateError(general_err.ParseErrorBase):
+    """
+    Raise when a reduction is performed, but the new stack is not a viable perfixes.
+    """
+
+    def __init__(self):
+        super().__init__(
+            'A Production has been successfully performed, but the new Stack is not a viable prefix after reducing.'
+        )
+
+
+class ShiftStateError(general_err.ParseErrorBase):
+    """
+    Raise when Stack is not viable prefixes anymore after a shift operation.
+    """
+
+    def __init__(self):
+        super().__init__(
+            'Stack is not viable prefixes anymore after a Shift operation.'
         )

@@ -525,6 +525,8 @@ class FA[LabelType, CharType]:
         if len(nodes_set) < 2:
             return
 
+        # known issue: the nid of the nodes not been merged.
+
         # generate standard node
         std_node = FANode[list[LabelType], CharType](label=[])
 

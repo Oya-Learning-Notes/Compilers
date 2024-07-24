@@ -48,6 +48,13 @@ class TokenPair:
             return False
         return True
 
+    def to_terminal(self) -> Terminal:
+        """
+        Return the corresponding Terminal for this TokenPair.
+        :return:
+        """
+        return Terminal(name=self.token_type)
+
 
 class LexicalAnalyzer:
     # list of available tokens

@@ -39,6 +39,9 @@ class ParserStackItem:
 
         return valid_items
 
+    def __repr__(self):
+        return str(self.piece)
+
 
 class StackAutomaton:
     cfg_sys: CFGSystem

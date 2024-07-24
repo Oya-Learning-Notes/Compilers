@@ -3,12 +3,18 @@ from typing import Union
 from copy import copy
 from collections import namedtuple
 import graphviz as gv
+from loguru import logger
 
 import cfg
 from cfg import Production
 from lexical_analyzer import TokenPair
 
 from . import errors
+
+__all__ = [
+    'ParseTreeNode',
+    'ParseTree'
+]
 
 
 class ParseTreeNode:
@@ -30,6 +36,7 @@ class ParseTreeNode:
         self.node_content = node_content
 
     def __repr__(self) -> str:
+        return str(self.node_type)
         repr_str = f"Node: {self.node_type} (Point To: "
         for i in self.pointers:
             repr_str += f"{i.node_type}, "
@@ -128,6 +135,35 @@ class ParseTree:
         # not found
         return None
 
+    def reduce_node(self, start_index: int, reduce_size: int, new_piece: cfg.Piece) -> None:
+        """
+        Reduce several count of previous entries nodes into new node.
+
+        Params:
+
+        For example, the stack is ABC. If we perform reduce_node(start_index=1, reduce_size=2, new_piece=Q), then we
+        will get AQ. (Q -> BC)
+        """
+        logger.debug(f'Parse Tree entries before reduce: {self.entries}')
+
+        assert (start_index + reduce_size) <= len(self.entries)
+
+        # determine the target node list
+        point_to_list: list[ParseTreeNode] = []
+        if reduce_size == 0:
+            point_to_list = [copy(self.epsilon_leaf)]
+        else:
+            point_to_list = self.entries[start_index: start_index + reduce_size]
+
+        # remove old node from entries
+        self.entries = self.entries[:start_index] + self.entries[start_index + reduce_size:]
+
+        # create new nodes
+        new_node = ParseTreeNode(new_piece, pointers=point_to_list)
+        self.entries.insert(start_index, new_node)
+
+        logger.debug(f'Parse Tree entries after reduce: {self.entries}')
+
     def derive_non_terminal(
             self, non_terminal_index: int, new_pieces: list[cfg.Piece] | None
     ) -> None:
@@ -179,10 +215,18 @@ class ParseTree:
         - Only one piece in entry
         - All leaves node has Terminal type.
         """
+        return self.is_valid_for_bottom_up() and self.is_valid_for_top_down()
 
-        if len(self.entries) > 1:
-            return False
+    def is_valid_for_bottom_up(self) -> bool:
+        """
+        Check if current parse tree is a valid parse tree when assume the parse mode is bottom up.
+        """
+        return len(self.entries) == 1
 
+    def is_valid_for_top_down(self) -> bool:
+        """
+        Check if current parse tree is a valid parse tree when assume the parse mode is top down.
+        """
         for node in self.leaves:
             if isinstance(node.node_type, cfg.NonTerminal):
                 return False
@@ -199,9 +243,14 @@ class ParseTree:
             # current node
             current_node = tree_node_list.pop()
 
+            label_str = str(current_node)
+            if current_node.node_content is not None:
+                if label_str != current_node.node_content.content:
+                    label_str += f'\n{current_node.node_content.content}'
+
             # add node to graph
             # here we must use id as the node name (unique identifier for each node)
-            graph.node(str(id(current_node)), str(current_node.node_type))
+            graph.node(str(id(current_node)), label_str)
 
             # add newly found nodes to graph, also to process list
             for new_node in current_node.pointers:
