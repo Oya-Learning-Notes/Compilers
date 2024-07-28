@@ -6,7 +6,10 @@
   - [Non-Terminal and Ternimal](#non-terminal-and-ternimal)
   - [Productions](#productions)
   - [Derivations](#derivations)
-  - [Resolve Ambiguities](#resolve-ambiguities)
+  - [Ambiguities](#ambiguities)
+    - [Ambiguities in Grammer](#ambiguities-in-grammer)
+    - [Resolve Ambiguities](#resolve-ambiguities)
+  - [Chomsky Hierarchy](#chomsky-hierarchy)
 - [RD Algorithm (Recursive Descent)](#rd-algorithm-recursive-descent)
   - [Limitation of RD Algorithm](#limitation-of-rd-algorithm)
     - [Short Circulating](#short-circulating)
@@ -35,7 +38,6 @@
 - [CLR Parsing](#clr-parsing)
   - [LR(1) Items](#lr1-items)
   - [LR(1) Parse Table](#lr1-parse-table)
-- [AST (Abstract Syntax Tree)](#ast-abstract-syntax-tree)
 
 # About
 
@@ -107,7 +109,17 @@ The sequence of the replacing above is called *Derivation*. A derivation could r
 
 If we **always first replace leftmost $N$ (Non-terminal)**, then it called **Left-most Derivation**. Similarly, we will have **Right-most Derivation**. And a single *Start Symbol* $S$ could have more than one *Derivations*.
 
-## Resolve Ambiguities
+## Ambiguities
+
+### Ambiguities in Grammer
+
+A grammar could be ambiguous. Here notice, **Ambiguity of grammer does not directly links to ambiguity of the Language** this grammer represents.
+
+A same language set may be represented by many different Grammars. Only **when all of this grammars are ambiguous, we say the Language is ambiguous**.
+
+It could be proved that: there is no way to always determine if a Grammar is ambiguous in a finite steps.
+
+### Resolve Ambiguities
 
 Still using $id * id + id$ as example, we have 2 way to parse this Symbol:
 
@@ -166,6 +178,14 @@ E -> if E then E
 E' -> if E then E' else E
     | (E)
 ```
+
+## Chomsky Hierarchy
+
+Actually, the Context-Free Grammar is just a part of the language hierarchy system which called Chomsky Hierarchy.
+
+![image](https://github.com/user-attachments/assets/a51e888f-dc31-43f9-b496-1744921692b0)
+
+As you see, CFG is the `Type-2` Grammer in this system.
 
 # RD Algorithm (Recursive Descent)
 
@@ -757,20 +777,3 @@ Notice in this case the first and second Item should be considered to different 
 For example: The lookahead of start symbol $S$ should be $\$$, since the token should appear after Reduction $S \to \cdots$ should only be $\$$ (end of input)
 
 ## LR(1) Parse Table
-
-# AST (Abstract Syntax Tree)
-
-Parse above is tracing the derivation sequence of the symbol, but compiler actually want a structural representation of the program, that is: Abstract Syntax Tree, which is similar to Parse Tree but ignored some info.
-
-![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/2c1f1cac-7440-4cef-a846-db17eee2a6cb)
-
-As we can see, something may not be necessary for compiler like:
-
-- Parenthesis
-- Single-successor node
-- ...
-
-If we convert the Parse Tree above into an AST, we will get:
-
-![image](https://github.com/Oya-Learning-Notes/Compilers/assets/61616918/9e48a59b-e1da-499a-992a-94b20c893f6c)
-
