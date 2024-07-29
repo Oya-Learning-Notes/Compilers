@@ -10,6 +10,11 @@ from lexical_analyzer import TokenPair
 
 from . import errors
 
+__all__ = [
+    'ParseTreeNode',
+    'ParseTree',
+]
+
 
 class ParseTreeNode:
     node_type: cfg.Piece
