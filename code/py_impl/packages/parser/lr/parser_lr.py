@@ -93,18 +93,14 @@ class LRParserBase:
 
         # parse until parse tree valid or all token used
         while not self._parse_tree.is_valid_for_bottom_up():
-            logger.debug(f'Len of entries: {len(self._parse_tree.entries)}')
             # check if we should perform reduction
             reduce_prod = self._should_reduce()
             # perform reduction if should
             if reduce_prod is not None:
-                logger.debug(f'Reduce with perduction {reduce_prod}')
                 self.perform_reduction(reduce_prod)
             # else, perform shift
             else:
-                logger.debug(f'Shift')
                 self.perform_shift()
-            logger.debug(f'Stack after op: {self._stack}')
 
         # error detection part
 
