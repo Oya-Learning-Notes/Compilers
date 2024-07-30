@@ -11,8 +11,8 @@ from lexical_analyzer import TokenPair
 from . import errors
 
 __all__ = [
-    'ParseTreeNode',
-    'ParseTree',
+    "ParseTreeNode",
+    "ParseTree",
 ]
 
 
@@ -20,6 +20,12 @@ class ParseTreeNode:
     node_type: cfg.Piece
     node_content: TokenPair | None
     pointers: list["ParseTreeNode"]
+
+    # store the corresponding production info for this node.
+    #
+    # For more info about Corresponding Production, 
+    # checkout docs/parse_tree.md -> Corresponding Production Info
+    production: Production
 
     def __copy__(self) -> "ParseTreeNode":
         return ParseTreeNode(self.node_type, self.node_content, self.pointers)
@@ -134,7 +140,10 @@ class ParseTree:
         return None
 
     def derive_non_terminal(
-            self, non_terminal_index: int, new_pieces: list[cfg.Piece] | None
+            self,
+            non_terminal_index: int,
+            new_pieces: list[cfg.Piece] | None,
+            corresponding_production: Production,
     ) -> None:
         """
         Derive the left-most NonTerminal leaves into new pieces.
@@ -154,6 +163,9 @@ class ParseTree:
         # check if it could be derived
         if not isinstance(non_terminal_node.node_type, cfg.NonTerminal):
             raise errors.DerivationError(non_terminal_node.node_type, new_pieces)
+
+        # update corresponding production of the node to be derived
+        non_terminal_node.production = corresponding_production
 
         # create nodes list for new pieces
         if new_pieces is not None:

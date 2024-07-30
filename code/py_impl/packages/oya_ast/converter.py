@@ -42,4 +42,23 @@ class ASTConverterRuleset:
     def find_rule(self, node: ParseTreeNode):
         # todo
         # Update parser module, add corresponding production info into ParseTreeNode.
-        pass
+        related_production: Production = node.production
+        try:
+            rule_for_this_node = self._ruleset_dict[related_production]
+        except KeyError:
+            raise RuleUndefinedError(prod=related_production, node=node)
+
+
+class RuleUndefinedError(Exception):
+    """
+    Raise when trying to get the corresponding rule for a Production that has no defined rule.
+    """
+
+    def __init__(self, prod: Production, node: ParseTreeNode | None = None):
+        # production info
+        err_msg = f'Could not find rule for Production {prod}. '
+        # add relevant node info
+        if node is not None:
+            err_msg += f'The node {node} is corresponding to this Production.'
+
+        super().__init__(err_msg)

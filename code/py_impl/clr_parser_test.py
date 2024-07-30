@@ -138,7 +138,7 @@ def main():
     print('---------------')
 
     # try generating parse table
-    stack_automaton = parser.StackAutomaton(cfg_sys_on_dragon_book)
+    stack_automaton = parser.lr.StackAutomaton(cfg_sys_on_dragon_book)
     gv_ins = stack_automaton.to_graphviz()
 
     gv_ins.render(directory='./output', view=True)

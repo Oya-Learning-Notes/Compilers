@@ -1,12 +1,16 @@
 AST will become a core module for the frontend compiler processing, since lots of functionalities are rely on the AST
 strucutrue and the Visitor of the AST.
 
+> About the package name: `oya_ast`
+>
+> I wrote the AST as a package and add it to the `Resourse Directory` in JetBrains Pycharm. Previously I try using more succinct name like `ast`, however it turn out that Python itself has a built-in package called `ast`, so I changed the name of the AST package to current one.
+
 # Parse Tree To AST
 
 There are lots of difference between Parse Tree and AST.
 
 |          | Parse Tree                                                  | AST                                                                                                 |
-|----------|-------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| -------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | NodeType | ParseTreeNode. Will bind to a NonTerminal or Terminal type. | Should be an ASTNode. Have its own set of node types.                                               |
 | Pointers | Unnamed children. Distinguished by index.                   | Should be named children. Also different types of ASTNode should have different children sturcture. |
 
@@ -117,9 +121,58 @@ allow user providing a RuleSet to the Visitor instance.
 Visitor Ruleset should contains the action for all types of node. Then for a single node, the Ruleset should consists of
 several callbacks like:
 
-- `before_visit_children(current_node)`
+- `before_visit_children(current_node, before_children = None)`
 - `after_visit_children(current_node)`
 
-The first will be executed before traversing down to the children node, and the second one will be executed after all
+The first will be executed before traversing a specific the children node, and the second one will be executed after all
 declared children has been traversed.
 
+-----
+
+The goal I set to myself is that, the NodeVisitor **could deal with both S-Attributed and L-Attributed Grammar.**
+
+### after_visit_children()
+
+For S-Attributed Grammar, the only time that need some operation is that after all children has been traversed, so the function `after_visit_children()` is definitely for Synthesized Attribute.
+
+### before_visit_children()
+
+Things go a little bit complex when dealing with L-Attributed Grammar. For a possible Production:
+
+$$
+ForLoopDef \to [loop, Id_1, each, Id_2, :, Expr]
+$$
+
+The production could derived into some language like below:
+
+```
+loop arr each i:
+    Expr;
+```
+
+Here notice that the type of identifier `i` is decided by type of `arr`, here we may need to use an L-Attributed Grammar:
+
+$$
+Id_2.type = Id_1.elementType
+$$
+
+In this case, our NodeVisitor should allow some operation before a specific children has been traversed, in this case is the $Id_2$ node. The possible Ruleset for `ForLoopDef` to handle this logic could be:
+
+```python
+# function that used as a ruleset for ForLoopDef
+def add_type_attr_for_id_2(parent_node: ASTNode):
+    # retrieve relevant nodes
+    id_1_node: ASTNode = parent_node.get_children_node('id_1')
+    id_2_node: ASTNode = parent_node.get_children_node('id_2')
+
+    # compute type of id_2
+    id_2_type = id_1_node.attributes['element_type']
+    id_2_node.add_attribute('type', id_2_type)
+
+for_loop_def_ruleset.before_traverse_rules = {
+    'id_2': add_type_attr_for_id_2,
+    ...,
+}
+```
+
+We use the Attribute Name of the node as the identifier. Here the Attribute Names refers to the key of the attribute dictionary of the node.

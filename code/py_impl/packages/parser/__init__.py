@@ -1,5 +1,7 @@
+# import as submodule
 from . import ll
-from . import clr
+from . import lr
+
+# import to the root namespace of this module
 from .errors import *
-from .stack_automata import *
 from .parse_tree import *
