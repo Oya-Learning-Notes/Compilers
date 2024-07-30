@@ -144,7 +144,6 @@ class ParseTree:
         For example, the stack is ABC. If we perform reduce_node(start_index=1, reduce_size=2, new_piece=Q), then we
         will get AQ. (Q -> BC)
         """
-        logger.debug(f'Parse Tree entries before reduce: {self.entries}')
 
         assert (start_index + reduce_size) <= len(self.entries)
 
@@ -161,8 +160,6 @@ class ParseTree:
         # create new nodes
         new_node = ParseTreeNode(new_piece, pointers=point_to_list)
         self.entries.insert(start_index, new_node)
-
-        logger.debug(f'Parse Tree entries after reduce: {self.entries}')
 
     def derive_non_terminal(
             self, non_terminal_index: int, new_pieces: list[cfg.Piece] | None
