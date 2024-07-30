@@ -1,4 +1,15 @@
-# About ParseTreeNode and pointers
+- [Node In Parse Tree](#node-in-parse-tree)
+  - [About ParseTreeNode and pointers](#about-parsetreenode-and-pointers)
+  - [Epsilon Node](#epsilon-node)
+  - [Corresponding Production Info](#corresponding-production-info)
+- [Design of ParseTree](#design-of-parsetree)
+  - [For Top-down Algorithms](#for-top-down-algorithms)
+  - [For Bottom-up Algorithms](#for-bottom-up-algorithms)
+
+
+# Node In Parse Tree
+
+## About ParseTreeNode and pointers
 
 When designing the usage of `ParseTree` and `ParseTreeNode`, the `ParseTreeNode` object are designed to reused and
 linked by reference of Node instance itself.
@@ -16,6 +27,20 @@ This is because we use `None` to represent $\varepsilon$ in this packages, howev
 Once a $\varepsilon$ terminal has been pass to parse tree, the parse tree will use such terminal to generate **Epsilon Node** everytime it's used.
 
 We could not directly cache the *Epsilon Node*, since different node that has been derived to $\varepsilon$ should actually link to it's own child *Epsilon Node*.
+
+## Corresponding Production Info
+
+For each node, we may store the corresponding Production info that related to this node. Checkout this example:
+
+![image](https://github.com/user-attachments/assets/5a55a6b6-6f45-4676-864a-0fe98a90604f)
+
+The **corresponding Production should represents the relationship of this node and its children nodes**.
+
+-----
+
+**Usage Of Corresponding Production**
+
+The Corresponding Production info is **useful when we trying to use a Rule-Based system to convert Parse Tree to Abstract Syntax Tree**. We could specify the rules for every single Production that how to convert ParseTreeNode to ASTNode which has this kinds of Production.
 
 # Design of ParseTree
 

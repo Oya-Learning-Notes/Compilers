@@ -228,7 +228,7 @@ class StackAutomaton:
 class EntryPatternNotMatch(Exception):
     def __init__(self, entry: Piece, production: Production | None = None):
         super().__init__(
-            f'Error occurred when generating Stack Automaton for CLR(1) Parser. '
+            f'Error occurred when generating Stack Automaton for LR Parser. '
             f'Provided entry {entry} found as the source of Production {production}, '
             f'However this production do NOT in accordance to the rules of CLR(1) '
             'augmented CFG pattern. Entry production should have the schema S\' -> S$. '
