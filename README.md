@@ -7,6 +7,9 @@ Notes about Compilers principle, organization and implements.
 - [Basics](./basics.md)
 - [Lexical Analyzation](./lexical_analyze.md)
 - [Parser](./parser.md)
+- [Semantic Check](./semantic_check.md)
+- [Storage](./storage.md)
+- [Optimization](./optimize.md)
 
 # Resources
 
