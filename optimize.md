@@ -8,6 +8,8 @@
   - [UD Chaining](#ud-chaining)
   - [Backward Analyze](#backward-analyze)
   - [DU Chaining](#du-chaining)
+  - [Next Use Info](#next-use-info)
+  - [Live Variable Info](#live-variable-info)
 
 # Basic Block
 
@@ -121,3 +123,63 @@ Like the UD Chaining, we also have two situation here:
 - If there are multiple SP of `x` in BB:
   - $DU[SP] = RefBeforeNextSP$. Where $RefBeforeNextSP$ refers to all refs of variable `x` after this SP and before the next SP of `x`.
 
+-----
+
+Now let's talk about the info tracing inside a single BB.
+
+- Next Use Info
+- Variable Live Info
+
+Both info could be calculated through a **backward iteration** of the TAC codes in BB.
+
+## Next Use Info
+
+The Next Use Info **records the line number where the next time the variable will be used**. Below is an example:
+
+```python
+a = b + c  # next(a) = 2, next(b) = 0, next(c) = 3
+b = a + 1  # next(a) = 0, next(b) = 0, next(c) = 3
+c = c + 1  # next(a) = 0, next(b) = 0, next(c) = 0
+```
+
+To calculate the Next Use Info, we could use the step, for **every TAC assignment code**, **start from the end** of the BB(Basic Block):
+
+$$
+x = a + b;
+$$
+
+
+
+- Initially, set $next(i) := 0$ for all lines $i$.
+- For each single line of TAC:
+  - Attach $next(x)$ to this line.
+  - Update $next(x) := 0$
+  - Attach $next(a)$ and $next(b)$ to this line.
+  - Update $next(a) := i$ and $next(b) := i$. Where $i$ would be the current line number.
+
+-----
+
+Notice that the **order of the step could not be exchanged**.
+
+Consider such example $a = a + 1;$ with current line number $i$. If we switch the order, and first attached latter $a$'s info, and update $next(a) = i$, then we will  attached $next(a) = i$ to this line when attached the first $a$'s info. But actually for this line, $next(a)$ should not be the current line number itself.
+
+## Live Variable Info
+
+If a ref of variable $x$ is used in the BB at line $j$, and there has Set Point of $x$ in this BB before this ref at line $i$. Then we say variable $x$ is live in range $[i, j]$.
+
+Specifically, all variables in $liveOut[BB]$ is considered Live at the end of the BB.
+
+-----
+
+Now we introduce the algorithm to determine the Live states of variable in each line. For each $A = B op C;$
+
+- Attach live info of $A$ to this line.
+- Update $IsLive(A) = False;$
+- Attach $IsLive(B)$ and $IsLive(C)$ to this line.
+- Update $IsLive(B)$ and $IsLive(C)$ to $True$.
+
+> Observe this algorithm and the `NextUse` algorithm above, could we considered that $nextuse(x) != 0$ is actually equivalent to $IsLive(x) = True$?
+>
+> Actually the answer is NO. First of all, the **initial state of the $next(x)$ and $live(x)$ is different**.
+> - $nextuse(x) = 0$ for all variables initially.
+> - $live(x) = True$ if $x \in LiveOut(BB)$, else $live(x) = False$ 
