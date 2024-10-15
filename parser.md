@@ -483,6 +483,13 @@ $$
 
 > In above, $S$ represents the entry, $\$$ represents *End Of Input*.
 
+### Select Set
+
+Some books will conclude this two situation to define a new type of set called **Select Set**, below is the definition:
+
+- If not exists: $A \to^* \epsilon$: $select(A) = first(A)$
+- Else: $select(A)=(first(A) - \epsilon) \cup follow(A)$
+
 ## Build Table
 
 Once we have First Sets and Follow Sets, we can start building the Parse Table.
