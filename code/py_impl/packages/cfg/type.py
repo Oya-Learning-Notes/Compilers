@@ -2,18 +2,18 @@ from dataclasses import dataclass
 from loguru import logger
 
 __all__ = [
-    'Piece',
-    'Terminal',
-    'NonTerminal',
-    'CFGSystem',
-    'Production',
-    'Derivation',
+    "Piece",
+    "Terminal",
+    "NonTerminal",
+    "CFGSystem",
+    "Production",
+    "Derivation",
 ]
 
 
-@dataclass
 class Piece:
-    name: str
+    def __init__(self, name: str):
+        self.name: str = name
 
     # here we actually promise terminal and non-terminal will NEVER has same name
     def __hash__(self):
@@ -47,9 +47,9 @@ class Derivation:
         return hash(tuple(self.pieces))
 
     def __repr__(self) -> str:
-        repr_str = ''
+        repr_str = ""
         if self.pieces is None:
-            return '\\e'
+            return "\\e"
         for piece in self.pieces:
             repr_str += repr(piece)
         return repr_str
@@ -64,44 +64,43 @@ class Production:
         return hash(tuple([self.source, self.target]))
 
     def __repr__(self) -> str:
-        repr_str = f'{repr(self.source)} -> {repr(self.target)}'
+        repr_str = f"{repr(self.source)} -> {repr(self.target)}"
         return repr_str
 
 
 class CFGSystem:
-    # list to store all productions in this CFG system.
-    production_list: list[Production]
-
-    # generated production dict, key is source, value is set of Derivation
-    production_dict: dict[NonTerminal, set[Production]]
-
-    # indicate the parsing entry of this CFG.
-    # Could be NonTerminal or Terminal, usually to be NonTerminal
-    entry: Piece | None
-
-    # record all used pieces
-    used_pieces: set[Piece]
-
-    # store first set of each piece
-    first_sets: dict[Piece, set[Terminal | None]]
-
-    # store follow set
-    follow_sets: dict[Piece, set[Terminal]]
-
-    # tmp value used to store follow calc states
-    _recur_runtime_set: set[Piece]  # a tmp set used to record the parameter stack of recursive runtime
-    _recur_piece_detected_in_calc_follow: Piece | None  # store the piece that led to recursive circular if exists
-    _is_recur_when_calc_follow: bool
-
-    # tmp value used to store first calc states
-    _recur_runtime_set_first: set[Piece]
-    _recur_piece_detected_in_calc_first: Piece | None
-    _is_recur_when_calc_first: bool
-
-    def __init__(self, production_list: list[Production], entry: Piece | None = None) -> None:
+    def __init__(
+        self, production_list: list[Production], entry: Piece | None = None
+    ) -> None:
         self.production_list = production_list
+        """list to store all productions in this CFG system."""
         self.used_pieces = set()
         self.entry = entry
+        """
+        indicate the parsing entry of this CFG.
+        Could be NonTerminal or Terminal, usually to be NonTerminal
+        """
+        self.production_dict: dict[NonTerminal, set[Production]] = {}
+        """generated production dict, key is source, value is set of Derivation"""
+        self.used_pieces: set[Piece] = set()
+        """The pieces used in this CFG"""
+        #
+        self.first_sets: dict[Piece, set[Terminal | None]]
+        """
+        store first set of each piece
+        """
+        self.follow_sets: dict[Piece, set[Terminal]]
+        """
+        store follow set
+        """
+
+        self._recur_runtime_set: set[Piece] = set()
+        """a tmp set used to record the parameter stack of recursive runtime"""
+        self._recur_piece_detected_in_calc_follow: Piece | None = None
+        """store the piece that led to recursive circular if exists"""
+        self._is_recur_when_calc_follow: bool = True
+        """Temp value used internally"""
+
         # init used_pieces
         for prod in self.production_list:
             # add source
@@ -119,17 +118,19 @@ class CFGSystem:
         # check if entry is in the used pieces
         if (self.entry is not None) and (self.entry not in self.used_pieces):
             raise RuntimeError(
-                'Defined CFG entry must in the used pieces of this CFG. '
-                f'Current entry {self.entry} not in set of used pieces.'
+                "Defined CFG entry must in the used pieces of this CFG. "
+                f"Current entry {self.entry} not in set of used pieces."
             )
 
         self.generate_production_dict()
-
-        self.first_sets = {}
-        self.follow_sets = {}
-
         self.generate_first_set()
         self.generate_follow_set()
+
+    def get_grammar_type(self):
+        """
+        Return an `int` number representing the chomsky grammar type
+        of this Grammar System.
+        """
 
     def generate_production_dict(self):
         # init dict
@@ -183,7 +184,9 @@ class CFGSystem:
         """
         # raise runtime error if list empty
         if len(pieces) == 0:
-            raise RuntimeError('Pieces could not be empty when calculating its FIRST set.')
+            raise RuntimeError(
+                "Pieces could not be empty when calculating its FIRST set."
+            )
 
         # the flag indicates if all previous scanned piece could be None.
         contains_epsilon_until_now: bool = True
@@ -215,7 +218,9 @@ class CFGSystem:
 
         return res_first_set
 
-    def calc_first_set(self, piece: Piece, enable_recur_detect: bool = True) -> set[Terminal | None]:
+    def calc_first_set(
+        self, piece: Piece, enable_recur_detect: bool = True
+    ) -> set[Terminal | None]:
         """
         Calculate the first set of a piece.
 
@@ -283,14 +288,18 @@ class CFGSystem:
                 pass
 
         # check if that the circular dependency error is cause by this piece
-        if (enable_recur_detect
-                and (self._recur_piece_detected_in_calc_first is not None)
-                and (piece == self._recur_piece_detected_in_calc_first)):
+        if (
+            enable_recur_detect
+            and (self._recur_piece_detected_in_calc_first is not None)
+            and (piece == self._recur_piece_detected_in_calc_first)
+        ):
             # remove the recur flag
             self._recur_piece_detected_in_calc_first = None
 
         # update catch if this result is final and valid
-        if (not enable_recur_detect) or (self._recur_piece_detected_in_calc_first is None):
+        if (not enable_recur_detect) or (
+            self._recur_piece_detected_in_calc_first is None
+        ):
             self.first_sets[piece] = first_set
         return first_set
 
@@ -310,8 +319,10 @@ class CFGSystem:
             for piece in self.used_pieces:
                 self.calc_follow_set(piece)
 
-    def calc_follow_set(self, piece: Piece, enable_recur_detect: bool = True) -> set[Terminal | None]:
-        logger.debug(f'Calculating follow set of {self}')
+    def calc_follow_set(
+        self, piece: Piece, enable_recur_detect: bool = True
+    ) -> set[Terminal | None]:
+        logger.debug(f"Calculating follow set of {self}")
         # try using cache
         try:
             return self.follow_sets[piece]
@@ -357,7 +368,9 @@ class CFGSystem:
 
                     # if not the last one, add the first set of the following piece
                     if i < pieces_count - 1:
-                        follow_set.update(self.calc_first_set(prod.target.pieces[i + 1]))
+                        follow_set.update(
+                            self.calc_first_set(prod.target.pieces[i + 1])
+                        )
 
                 # update states
                 if not (None in cur_piece_first_set):
@@ -371,14 +384,18 @@ class CFGSystem:
 
         # if current recur pieces not None, we need to check if this piece is the one that cause recur circle
         # if it is, then after this, the flag should be removed since the recur circle has been resolved
-        if (enable_recur_detect
-                and (self._recur_piece_detected_in_calc_follow is not None)
-                and (piece == self._recur_piece_detected_in_calc_follow)):
+        if (
+            enable_recur_detect
+            and (self._recur_piece_detected_in_calc_follow is not None)
+            and (piece == self._recur_piece_detected_in_calc_follow)
+        ):
             # update recur piece flag if it's not in stack anymore
             self._recur_piece_detected_in_calc_follow = None
 
         # update cache when this result is the final
-        if (not enable_recur_detect) or (self._recur_piece_detected_in_calc_follow is None):
+        if (not enable_recur_detect) or (
+            self._recur_piece_detected_in_calc_follow is None
+        ):
             self.follow_sets[piece] = follow_set
 
         # remove piece from runtime stack
@@ -388,6 +405,7 @@ class CFGSystem:
             pass
 
         return follow_set
+
 
 # a -> bc
 # c -> xa
