@@ -1,10 +1,14 @@
 """
 Including tools to check the chomsky grammar type of certain grammar system.
 """
+
 import traceback
 from collections.abc import Sequence, Callable
 from functools import cached_property
 
+from rich import print as rprint
+from rich.pretty import pprint as rpprint
+from rich.pretty import pretty_repr
 
 from loguru import logger
 
@@ -12,6 +16,10 @@ from .type import Piece, NonTerminal, Terminal, Derivation
 
 
 class ChomskyGrammarError(Exception):
+    """
+    Raised when failed to check the chomsky grammar type of the `ChomskyGrammarSystem`
+    """
+
     name: str
     message: str
 
@@ -119,12 +127,6 @@ class ChomskyProduction:
         - 32: Right Regular (S->aA)
         """
 
-        if self.is_rhs_epsilon():
-            return 40
-
-        if self.rhs_len == 1 and isinstance(self.target[0], Terminal):
-            return 40
-
         # if left-hand side is multiple piece
         if self.lhs_len > 1:
             # if rhs is epsilon or has length greater than lhs
@@ -137,6 +139,12 @@ class ChomskyProduction:
         # at this point, lhs could only be 1
         # check if it's a regular production
 
+        if self.is_rhs_epsilon():
+            return 40
+
+        if self.rhs_len == 1 and isinstance(self.target[0], Terminal):
+            return 40
+
         has_terminal: bool = False
         has_non_terminal: bool = False
 
@@ -146,7 +154,7 @@ class ChomskyProduction:
             if isinstance(p, Terminal):
                 has_non_terminal = True
 
-        if has_terminal and has_non_terminal:
+        if has_terminal and has_non_terminal and self.rhs_len == 2:
             # Left Regular
             if isinstance(self.target[0], NonTerminal):
                 return 31
@@ -189,23 +197,27 @@ class ChomskyGrammarSystem:
         - 32: Right Regular (S->aA)
         """
         max_hierarchy = 40
+
         for p in self.productions:
             current_production_hierarchy = p.chomsky_hierarchy
             logger.debug(
-                f"Hierarchy of {p} = '{HIERARCHY_TEXT[current_production_hierarchy]}' ({current_production_hierarchy})"
+                f"Hierarchy of {repr(p):<10} "
+                f"= {HIERARCHY_TEXT[current_production_hierarchy]}' "
+                f"({current_production_hierarchy})"
             )
 
             # epsilon rhs
             if current_production_hierarchy == 40:
                 continue
 
+            if max_hierarchy == 40:
+                max_hierarchy = current_production_hierarchy
+                continue
+
             # using python chained comparison
             # two are both regular, but with different direction
             # then the final grammar could at most be context-free(2)
-            if (
-                30 < current_production_hierarchy != max_hierarchy > 30
-                and max_hierarchy != 40
-            ):
+            if 30 < current_production_hierarchy != max_hierarchy > 30:
                 max_hierarchy = 2
 
             max_hierarchy = min(current_production_hierarchy, max_hierarchy)
@@ -295,8 +307,11 @@ cases: dict[
 
 
 def run_example_cases():
+    logger.info("Start running test groups...")
+    logger.info(f"Test Cases: {pretty_repr(HIERARCHY_TEXT)}")
+
     for case_name, case_prod in cases.items():
-        logger.info(f"Executing Test Case: '{case_name}'")
+        logger.info(f'Executing Test Case: "{case_name}"')
 
         if callable(case_prod):
             try:

@@ -11,10 +11,7 @@ from lexical_analyzer import TokenPair
 
 from . import errors
 
-__all__ = [
-    'ParseTreeNode',
-    'ParseTree'
-]
+__all__ = ["ParseTreeNode", "ParseTree"]
 
 
 class ParseTreeNode:
@@ -24,7 +21,7 @@ class ParseTreeNode:
 
     # store the corresponding production info for this node.
     #
-    # For more info about Corresponding Production, 
+    # For more info about Corresponding Production,
     # checkout docs/parse_tree.md -> Corresponding Production Info
     production: Production
 
@@ -32,10 +29,10 @@ class ParseTreeNode:
         return ParseTreeNode(self.node_type, self.node_content, self.pointers)
 
     def __init__(
-            self,
-            node_type: cfg.Piece,
-            node_content: TokenPair = None,
-            pointers: list["ParseTreeNode"] | None = None,
+        self,
+        node_type: cfg.Piece,
+        node_content: TokenPair = None,
+        pointers: list["ParseTreeNode"] | None = None,
     ):
         self.pointers = pointers or []
         self.node_type = node_type
@@ -92,9 +89,9 @@ class ParseTree:
     _first_non_terminal_cache: int
 
     def __init__(
-            self,
-            start_nodes: list[ParseTreeNode],
-            epsilon_terminal: cfg.Terminal | None = None,
+        self,
+        start_nodes: list[ParseTreeNode],
+        epsilon_terminal: cfg.Terminal | None = None,
     ):
         """
         Initialize this parse tree with some nodes.
@@ -113,7 +110,7 @@ class ParseTree:
         self._first_non_terminal_cache = 0
 
     def get_first_non_terminal_info(
-            self, use_cache: bool = True
+        self, use_cache: bool = True
     ) -> tuple[int, ParseTreeNode] | None:
         """
         Return index of first node in leaves that with NonTerminal type.
@@ -130,7 +127,7 @@ class ParseTree:
         if use_cache:
             scan_start = self._first_non_terminal_cache
 
-        # start scanning from begin to end
+        # start scanning from beginning to end
         for idx in range(scan_start, scan_end):
             current_node = self.leaves[idx]
             # check if the type is non-terminal
@@ -141,7 +138,9 @@ class ParseTree:
         # not found
         return None
 
-    def reduce_node(self, start_index: int, reduce_size: int, new_piece: cfg.Piece) -> None:
+    def reduce_node(
+        self, start_index: int, reduce_size: int, new_piece: cfg.Piece
+    ) -> None:
         """
         Reduce several count of previous entries nodes into new node.
 
@@ -158,20 +157,22 @@ class ParseTree:
         if reduce_size == 0:
             point_to_list = [copy(self.epsilon_leaf)]
         else:
-            point_to_list = self.entries[start_index: start_index + reduce_size]
+            point_to_list = self.entries[start_index : start_index + reduce_size]
 
         # remove old node from entries
-        self.entries = self.entries[:start_index] + self.entries[start_index + reduce_size:]
+        self.entries = (
+            self.entries[:start_index] + self.entries[start_index + reduce_size :]
+        )
 
         # create new nodes
         new_node = ParseTreeNode(new_piece, pointers=point_to_list)
         self.entries.insert(start_index, new_node)
 
     def derive_non_terminal(
-            self,
-            non_terminal_index: int,
-            new_pieces: list[cfg.Piece] | None,
-            corresponding_production: Production,
+        self,
+        non_terminal_index: int,
+        new_pieces: list[cfg.Piece] | None,
+        corresponding_production: Production,
     ) -> None:
         """
         Derive the left-most NonTerminal leaves into new pieces.
@@ -211,9 +212,9 @@ class ParseTree:
 
         # insert new nodes to previous place of the parent node
         self.leaves = (
-                self.leaves[:non_terminal_index]
-                + new_nodes
-                + self.leaves[non_terminal_index + 1:]
+            self.leaves[:non_terminal_index]
+            + new_nodes
+            + self.leaves[non_terminal_index + 1 :]
         )
 
     def is_valid(self) -> bool:
@@ -255,7 +256,7 @@ class ParseTree:
             label_str = str(current_node)
             if current_node.node_content is not None:
                 if label_str != current_node.node_content.content:
-                    label_str += f'\n{current_node.node_content.content}'
+                    label_str += f"\n{current_node.node_content.content}"
 
             # add node to graph
             # here we must use id as the node name (unique identifier for each node)
