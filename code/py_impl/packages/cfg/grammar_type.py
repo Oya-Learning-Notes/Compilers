@@ -178,10 +178,48 @@ HIERARCHY_TEXT: dict[int, str] = {
 
 class ChomskyGrammarSystem:
     def __init__(
-        self, entry: Sequence[Piece], productions: Sequence[ChomskyProduction]
+        self,
+        entry: Piece,
+        productions: Sequence[ChomskyProduction],
+        pieces: Sequence[Piece] | None = None,
     ):
-        self.entry: Sequence[Piece] = entry
+        self.entry: Piece = entry
+        self.nonterminals: set[NonTerminal] = set()
+        self.terminals: set[Terminal] = set()
         self.productions: Sequence[ChomskyProduction] = productions
+
+        if pieces is None:
+            pieces = []
+            for p in self.productions:
+                for piece in p.source:
+                    pieces.append(piece)
+                for piece in p.target:
+                    pieces.append(piece)
+
+        for p in pieces:
+            if isinstance(p, NonTerminal):
+                self.nonterminals.add(p)
+            elif isinstance(p, Terminal):
+                self.terminals.add(p)
+            else:
+                raise ValueError(f"Invalid piece: {p}")
+
+    def __repr__(self) -> str:
+        prod_str = (
+            str(self.productions)
+            .replace(", ", ", \n    ")
+            .replace("[", "[\n    ")
+            .replace("]", "\n  ],")
+        )
+
+        repr_str = "G={\n"
+        repr_str += f"  {str(self.nonterminals)}\n"
+        repr_str += f"  {str(self.terminals)}\n"
+        repr_str += f"  {prod_str}\n"
+        repr_str += f"  {str(self.entry)}\n"
+        repr_str += "}"
+
+        return repr_str
 
     @cached_property
     def chomsky_hierarchy(self) -> int:
@@ -311,17 +349,18 @@ def run_example_cases():
     logger.info(f"Test Cases: {pretty_repr(HIERARCHY_TEXT)}")
 
     for case_name, case_prod in cases.items():
-        logger.info(f'Executing Test Case: "{case_name}"')
-
         if callable(case_prod):
             try:
                 case_prod = case_prod()
             except Exception as e:
                 logger.error(e)
                 continue
-
         # construct grammar
-        grammar = ChomskyGrammarSystem(entry=[S], productions=case_prod)
+        grammar = ChomskyGrammarSystem(entry=S, productions=case_prod)
+
+        logger.info(f'Executing Test Case: "{case_name}"')
+        logger.info(f"Grammar: \n {grammar}")
+
         logger.success(
             f"Grammar Chomsky Hierarchy: {HIERARCHY_TEXT[grammar.chomsky_hierarchy]} ({grammar.chomsky_hierarchy})"
         )

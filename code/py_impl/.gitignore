@@ -2,3 +2,6 @@
 .idea
 .vscode
 output
+
+# ignore log
+*.log

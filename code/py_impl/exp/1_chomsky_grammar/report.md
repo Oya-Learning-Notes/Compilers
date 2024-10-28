@@ -1,33 +1,16 @@
----
-marp: true
-# theme: gaia
-# _class: lead
-paginate: true
-headingDivider: true
-backgroundColor: #fff
-# backgroundImage: url('https://marp.app/assets/hero-background.svg')
-backgroundImage: url(./assets/bg_opacity.png)
-footer: "
-Chomsky Hierarchy Detection Program
-"
-math: mathjax
----
-
-<!-- _footer: ""-->
-<!-- _paginate: skip -->
-
 # **Chomsky Hierarchy** Detection
 
-Exp 1, Group 2. \
-*AHU 2022, Software Engineering*
+## 算法原理
 
----
+### 文法类型的定义
 
-# 算法原理
+根据所学知识，我们知道，对于一个文法，其乔姆斯基文法类型通过如下方式定义：
 
----
+![Wikipedia Chomsky Hierarchy](https://github.com/user-attachments/assets/1d53c063-039d-48c6-9577-5a50325a0d2c)
 
-# Production **Hierarchy Code**
+故一种容易想到的思路是通过逐个检查文法中包含的产生式所符合的文法类型，来最终确定整个文法的类型。
+
+### Hierarchy Code 的定义
 
 为了便于程序实现，我们在 Chomsky Hierarhcy 法则的基础上，定义了产生式的 Hierarhcy Code ：
 
@@ -43,19 +26,12 @@ HIERARCHY_TEXT: dict[int, str] = {
 }
 ```
 
----
-
-# Production **Hierarchy Code**
-
 对于一个单独的产生式 $\alpha \to \beta$ ($\alpha, \beta \in V^*$, 且 $\alpha$ 必须包含至少一个$V_N$)，
 我们可以根据 Chomsky Hierarchy Rules 确定其 Hierarchy Code。
 
 此后我们用 $HC(P_i)$表示某个产生式 $P_i$ 的 Hierarchy Code，并定义缩写HC。
 
----
-
-
-# Production **Hierarchy Code**
+### 特殊的产生式
 
 这里我们允许空串 $\varepsilon$ 的出现。
 
@@ -68,13 +44,11 @@ HIERARCHY_TEXT: dict[int, str] = {
 
 于此同时，我们将**左正规和右正规文法使用不同 $HC$ (31, 32) 进行区分**。
 
----
-
 我们通过如下逻辑来判断一个产生式的 $HC$：
 
-![h:600](./assets/hc_calc.png)
+![HC Determination Logic](./assets/hc_calc.png)
 
----
+上图的 `mermaid` 代码如下：
 
 ```mermaid
 flowchart TD
@@ -92,9 +66,7 @@ flowchart TD
     RHSLongerThenLHS -->|no| 0
 ```
 
----
-
-# Grammar Hierarchy
+### 文法类型
 
 在完成$HC$的定义后，我们便可以通过遍历文法中产生式的方式，来确定该文法的 Chomsky Hierarhy。
 
@@ -106,9 +78,7 @@ flowchart TD
    2. **根据 $NewHC$ 的值进行迭代：$MacHC=Update(MacHC, NewHC)$**
 3. 循环结束后，根据 $MaxHC$ 的结果，确定 $G$ 的文法类型。
 
----
-
-# Grammar Hierarchy: **Pseudo Code**
+伪代码如下：
 
 ```python
 def calc_grammar_hierarchy(G):
@@ -123,9 +93,7 @@ def calc_grammar_hierarchy(G):
 
 接下来需要确定 `update` 函数的逻辑。
 
----
-
-# Grammar Hierarchy: **Update Logic**
+#### Update Function
 
 总体上来说，是一个取较小值的过程（但不完全是）
 这是由先前对于 $HC$ 的定义，以及 Chomsky Hierarchy 的特点决定的。
@@ -144,13 +112,11 @@ HIERARCHY_TEXT: dict[int, str] = {
 }
 ```
 
----
+`update()` 函数的逻辑图示如下：
 
-# Grammar Hierarchy: **Update Logic Flow Chart**
+![Update Function Process Logic](./assets/hc_processing_flow_lr.png)
 
-![](./assets/hc_processing_flow_lr.png)
-
----
+上图的 `mermaid` 代码如下：
 
 ```mermaid
 flowchart TD
@@ -167,19 +133,11 @@ flowchart TD
     IsRegularDiffDirect -->|no| Update
 ```
 
----
-
-# Grammar Hierarchy
-
 最后，我们可以轻易的通过 $MaxHC$ 的终值确定 $G$ 的文法类型。
 
-或者说，此时的 $MaxHC$ 所指向的文法类型，就是该文法 $G$ 的文法类型。
+或者说，此时的 $MaxHC$ 所指向的文法类型，就是该文法 $G$ 的文法类型。（特别的，当 $MaxHC=40$ 时，认为该文法为正规文法）
 
----
-
-# 编程实现 & 数据定义
-
----
+## 编程实现 & 数据定义
 
 本程序随代码定义了几份数据样例，展示了程序的错误检测能力，以及文法类型判断能力。
 
@@ -199,16 +157,12 @@ cases: dict[
 }
 ```
 
----
-
 **写在数据定义说明之前**
 
 本程序为了简化问题，忽略了包括但不限于下方列出的因素：
 
 - 对于文法的开始符号 $S$ 进行考虑。
 - 对于无用/有害产生式的处理。
-
----
 
 考虑下面的例子：
 
@@ -232,9 +186,9 @@ $$
 理论上，如果剔除最后一条产生式，本文法应该是正规文法 (Right-regular)。
 可是本程序将会把此文法判定为上下文相关 (Context-sensitive) 文法。
 
----
+### 数据定义
 
-# Data Definition
+#### 符号的定义
 
 为了定义一个新的测试样例，您需要使用自带的非终结符和终结符，或者自己创建这些符号。
 
@@ -245,10 +199,6 @@ D = NonTerminal("D")
 F = NonTerminal("F")
 x = Terminal("x")
 ```
-
----
-
-# Data Definition
 
 这里注意，`Terminal` 和 `NonTerminal` 均继承自 `Piece`。
 
@@ -263,7 +213,7 @@ else:
 
 此外，通过为 `Piece` 类提供 `__repr__()` 方法，我们得以为各种符号提供良好的可视化体验。
 
----
+#### 产生式的定义
 
 然后，您可以使用类 `ChomskyProduction` 来定义一个产生式：
 
@@ -273,10 +223,6 @@ production = ChomskyProduction([D], [xF])
 
 这代表 $D \to xF$
 
----
-
-# Data Definition
-
 完成对于 $V_N,V_T$ 的定义后，您需要定义一个 `list[ChomskyProduction]`，或者定义一个会返回 `list[ChomskyProduction]` 类型的可调用对象( `Callable` )。
 
 > 这里支持 `Callable` 对象，是为了方便对本程序的错误检测能力进行测试。
@@ -285,9 +231,8 @@ production = ChomskyProduction([D], [xF])
 >
 > 参见本程序提供的错误检测样例。
 
----
 
-# Data Definition
+#### 添加自定义样例
 
 定义好您自己的产生式列表后，您可以将其添加到样例字典中，这样，您自己的样例就可以随本程序一起被运行。
 
@@ -301,9 +246,7 @@ cases: dict[
 }
 ```
 
----
-
-# Exception Detection
+#### 错误检测能力
 
 本程序在遇到不合理的产生式时，可以抛出带有对应错误信息的 Exceptions:
 
@@ -315,21 +258,21 @@ class EmptyLHS(Exceptions): ...
 class InvalidLHS(Exceptions): ...
 ```
 
----
+#### 从命令行输入样例
 
-至此，本程序的算法实现和主要功能已经介绍完毕。
+为了提供更加方便的样例输入，本程序支持直接从命令行输入信息来生成样例，示例如下：
 
----
+![Input From Command Line](https://github.com/user-attachments/assets/f8a93732-cbbb-454f-a199-a52212ebddb1)
 
-# 小组分工
 
-- 程新亮：讨论算法，辅助文档编写。
-- 杜意如：讨论算法，辅助文档编写。
-- 纪云：讨论算法，辅助文档编写。
-- 钱锦程：讨论算法，辅助文档编写。
-- 齐子祥：讨论算法，辅助文档编写。
-- 周裕佳：讨论算法，辅助文档编写，编写以及测试代码，制作PPT。
+### 运行演示
 
----
+针对于随代码附上的几个样例，部分运行结果如下图所示：
 
-# 谢谢大家
+![TestCases Execution Example](https://github.com/user-attachments/assets/a3885bf8-7df2-44c9-a429-0a504be6c27b)
+
+上图详细展示了本文上面提到的功能，如错误检测，产生式类型判断，文法类型判断等等。
+
+关于本程序的完整代码，请查阅Github仓库： https://github.com/Oya-Learning-Notes/Compilers/blob/29fdada1c92cc79cfa5c83d961c553aa0ea47564/code/py_impl/chomsky_type.py
+
+> 注：上述程序的运行依赖于整个仓库中的其他包，故如果需要在其他环境运行程序，需要先完整克隆上述项目，并构建对应的Python环境。

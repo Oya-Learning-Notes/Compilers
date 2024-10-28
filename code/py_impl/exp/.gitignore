@@ -2,3 +2,5 @@ assets
 *.log
 *.pptx
 *.pdf
+*.docx
+*.tex
