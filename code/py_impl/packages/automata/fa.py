@@ -8,7 +8,7 @@ from .utils import get_node_id
 # Notice that FANodeID and FAChar must be hashable type.
 # Since the hash method is used when checking if two nodes have identical transition moves. That's to check if two
 # pointers collection has the same hash value.
-type FANodeID = int | str
+type FANodeID = str
 
 
 class FANode[LabelType, FAChar]:
@@ -22,12 +22,12 @@ class FANode[LabelType, FAChar]:
         self,
         is_start=False,
         is_end=False,
-        nid=None,
+        nid: str | None = None,
         label: LabelType | None = None,
         pointers: list[tuple[FAChar, FANodeID]] | None = None,
     ) -> None:
         if nid is None:
-            nid = get_node_id()
+            nid = str(get_node_id())
 
         if pointers is None:
             pointers = []
