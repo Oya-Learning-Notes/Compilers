@@ -49,8 +49,11 @@ def chomsky_grammar_input() -> ChomskyGrammarSystem:
 
     while True:
         production_str = input(
-            "Input a production (E.g.: ABC->aBc) (Input 0 or empty line to finish): \n"
+            "Input a production (E.g.: ABC->aBc) (Input 0 or empty line to finish. Enter q to quit): \n"
         )
+
+        if production_str == 'q':
+            raise KeyboardInterrupt()
 
         production_str = production_str.replace(",", "").replace("\\e", "")
 
@@ -136,8 +139,9 @@ def main():
             grammar = chomsky_grammar_input()
         except KeyboardInterrupt:
             return 0
-        except:
-            logger.error("Failed to input a chomsky grammar, please try again")
+        except Exception as e:
+            logger.error(e)
+            logger.error("Failed to input a chomsky grammar, please try again. ")
             continue
 
         logger.info(f"Grammar:\n {grammar}")
