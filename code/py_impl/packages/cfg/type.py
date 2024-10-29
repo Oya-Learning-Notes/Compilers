@@ -74,7 +74,9 @@ class CFGSystem:
     ) -> None:
         self.production_list = production_list
         """list to store all productions in this CFG system."""
-        self.used_pieces = set()
+
+        self.used_pieces: set[Piece] = set()
+
         self.entry = entry
         """
         indicate the parsing entry of this CFG.
@@ -84,12 +86,12 @@ class CFGSystem:
         """generated production dict, key is source, value is set of Derivation"""
         self.used_pieces: set[Piece] = set()
         """The pieces used in this CFG"""
-        #
-        self.first_sets: dict[Piece, set[Terminal | None]]
+
+        self.first_sets: dict[Piece, set[Terminal | None]] = {}
         """
         store first set of each piece
         """
-        self.follow_sets: dict[Piece, set[Terminal]]
+        self.follow_sets: dict[Piece, set[Terminal]] = {}
         """
         store follow set
         """

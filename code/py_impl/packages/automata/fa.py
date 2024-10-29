@@ -19,12 +19,12 @@ class FANode[LabelType, FAChar]:
     label: LabelType | None  # label of this node
 
     def __init__(
-            self,
-            is_start=False,
-            is_end=False,
-            nid=None,
-            label: LabelType | None = None,
-            pointers: list[tuple[FAChar, FANodeID]] | None = None,
+        self,
+        is_start=False,
+        is_end=False,
+        nid=None,
+        label: LabelType | None = None,
+        pointers: list[tuple[FAChar, FANodeID]] | None = None,
     ) -> None:
         if nid is None:
             nid = get_node_id()
@@ -53,18 +53,18 @@ class FANode[LabelType, FAChar]:
         return self.hash_of_pointers() == other.hash_of_pointers()
 
     def __repr__(self) -> str:
-        repr_str = f'<FANode id:{self.nid} Start:{self.is_start} Fin:{self.is_end}>\n'
+        repr_str = f"<FANode id:{self.nid} Start:{self.is_start} Fin:{self.is_end}>\n"
         for p in self.pointers:
-            repr_str += f'<Pointer input:{p[0]} nextId:{p[1]}/>\n'
-        repr_str += '</FANode>'
+            repr_str += f"<Pointer input:{p[0]} nextId:{p[1]}/>\n"
+        repr_str += "</FANode>"
 
         return repr_str
 
-    def try_move(self, next_input: FAChar) -> set[FANodeID] | None:
+    def try_move(self, next_input: FAChar | None) -> set[FANodeID] | None:
         """
-        Return a list of FANodeID if we successfully find the next node to move on. Otherwise, return `None`.
+        Return a set of FANodeID if we successfully find the next node to move on. Otherwise, return `None`.
         """
-        move_candidate: set[FANodeID[LabelType]] = set()  # id list of the movable node next.
+        move_candidate: set[FANodeID] = set()  # id list of the movable node next.
 
         # loop through all pointers to check which node could we move next.
         for pointer in self.pointers:
@@ -137,7 +137,9 @@ class FANode[LabelType, FAChar]:
 
         Nodes with same pointers hash value should be able to merge when minimizing DFA.
         """
-        pointers_set = set(self.pointers)  # convert pointers list to set. This will ignore order & remove duplicated
+        pointers_set = set(
+            self.pointers
+        )  # convert pointers list to set. This will ignore order & remove duplicated
         hashval = hash(tuple(pointers_set))
         if consider_is_end:
             hashval = hash(tuple([hashval, self.is_end]))
@@ -156,7 +158,13 @@ class FA[LabelType, CharType]:
     _max_match: int
     max_match: int
 
-    def __init__(self, nodes_dict: dict[FANodeID, FANode] | list[FANode]) -> None:
+    def __init__(
+        self,
+        nodes_dict: (
+            dict[FANodeID, FANode[LabelType, CharType]]
+            | list[FANode[LabelType, CharType]]
+        ),
+    ) -> None:
         self._max_match = 0
         self.max_match = 0
 
@@ -171,12 +179,12 @@ class FA[LabelType, CharType]:
         self.init_state()
 
     def __repr__(self) -> str:
-        repr_str = '<FA>\n'
+        repr_str = "<FA>\n"
         for node in self.nodes.values():
             repr_str += str(node)
-            repr_str += '\n'
+            repr_str += "\n"
 
-        repr_str += '</FA>'
+        repr_str += "</FA>"
         return repr_str
 
     def __copy__(self):
@@ -194,7 +202,9 @@ class FA[LabelType, CharType]:
                 return False
         return True
 
-    def get_start_states(self, find_epsilons: bool = False) -> set[FANode[LabelType, CharType]]:
+    def get_start_states(
+        self, find_epsilons: bool = False
+    ) -> set[FANode[LabelType, CharType]]:
         """
         Get a set of start states of this automaton.
 
@@ -204,7 +214,9 @@ class FA[LabelType, CharType]:
         """
         if not find_epsilons:
             return set(n for (nid, n) in self.nodes.items() if n.is_start)
-        return self.find_epsilons(set(n for (nid, n) in self.nodes.items() if n.is_start))
+        return self.find_epsilons(
+            set(n for (nid, n) in self.nodes.items() if n.is_start)
+        )
 
     def get_current_state(self) -> set[FANode[LabelType, CharType]]:
         """
@@ -214,13 +226,15 @@ class FA[LabelType, CharType]:
 
     def set_current_state(self, states: set[FANode[LabelType, CharType]]) -> None:
         if len(states) == 0:
-            raise RuntimeError('Could not set current state to an empty set, which representing FA stuck.')
+            raise RuntimeError(
+                "Could not set current state to an empty set, which representing FA stuck."
+            )
         self._current_states = states
 
     def get_end_states(self) -> set[FANode[LabelType, CharType]]:
         return self.find_epsilons(set(n for nid, n in self.nodes.items() if n.is_end))
 
-    def init_state(self) -> 'FA[LabelType, CharType]':
+    def init_state(self) -> "FA[LabelType, CharType]":
         """
         Set the initial state of this FA.
 
@@ -231,7 +245,9 @@ class FA[LabelType, CharType]:
         self.max_match = 0
         return self
 
-    def find_epsilons(self, input_states: set[FANode[LabelType, CharType]]) -> set[FANode[LabelType, CharType]]:
+    def find_epsilons(
+        self, input_states: set[FANode[LabelType, CharType]]
+    ) -> set[FANode[LabelType, CharType]]:
         """
         Find the epsilon closure of the input_states
         """
@@ -252,9 +268,7 @@ class FA[LabelType, CharType]:
                 break
 
             # convert id to nodes instance
-            epsilon_nodes = self.convert_id_set_to_node_set(
-                found_epsilons
-            )
+            epsilon_nodes = self.convert_id_set_to_node_set(found_epsilons)
 
             # we still need to check if there is any epsilon moves in the newly found nodes
             it_nodes = epsilon_nodes
@@ -271,7 +285,9 @@ class FA[LabelType, CharType]:
         return input_states
 
     @staticmethod
-    def get_all_possible_input_on_state(state: set[FANode[LabelType, CharType]]) -> set[CharType]:
+    def get_all_possible_input_on_state(
+        state: set[FANode[LabelType, CharType]]
+    ) -> set[CharType]:
         """
         Get all possible input CharType set on certain state.
 
@@ -293,7 +309,9 @@ class FA[LabelType, CharType]:
 
         Return `True` if this is a valid move, else return `False`.
         """
-        next_state = self._move_next(prev_states=self._current_states, next_input=next_input)
+        next_state = self._move_next(
+            prev_states=self._current_states, next_input=next_input
+        )
 
         # if move failed, update state to empty set, return False.
         if next_state is None:
@@ -311,9 +329,7 @@ class FA[LabelType, CharType]:
         return True
 
     def _move_next(
-            self,
-            prev_states: set[FANode[LabelType, CharType]],
-            next_input: CharType
+        self, prev_states: set[FANode[LabelType, CharType]], next_input: CharType
     ) -> set[FANode[LabelType, CharType]] | None:
         """
         Try to find the next states with given previous state in this FA.
@@ -404,7 +420,9 @@ class FA[LabelType, CharType]:
         """
         return [self.nodes[nid] for nid in id_set]
 
-    def to_dfa(self, new_fa: bool = True, minimize: bool = True) -> 'FA[LabelType,CharType]':
+    def to_dfa(
+        self, new_fa: bool = True, minimize: bool = True
+    ) -> "FA[list[LabelType],CharType]":
         """
         Try to convert current FA to DFA.
 
@@ -414,7 +432,9 @@ class FA[LabelType, CharType]:
         """
         # store sets of states for DFA, init it with start state
         # key should be the set of states, value should be the FANode object for the corresponding DFA states
-        dfa_states_dict: dict[tuple[FANode[LabelType, CharType], ...], FANode[LabelType, CharType]] = {}
+        dfa_states_dict: dict[
+            tuple[FANode[LabelType, CharType], ...], FANode[list[LabelType], CharType]
+        ] = {}
 
         # record if a dfa state has been visited
         visited_dict: dict[FANode, bool] = {}
@@ -423,6 +443,7 @@ class FA[LabelType, CharType]:
         start_state = self.get_start_states(find_epsilons=True)
         start_state_node = self._create_set_state(start_state)
         start_state_node.is_start = True
+
         # add to dfa_states_dict
         dfa_states_dict[tuple(start_state)] = start_state_node
 
@@ -453,6 +474,7 @@ class FA[LabelType, CharType]:
                 next_state = self._move_next(prev_state, input_char)
 
                 # if next_state node exists then retrieve it, else create new one
+                assert next_state is not None
                 next_state_node = dfa_states_dict.get(tuple(next_state))
                 if next_state_node is None:
                     next_state_node = self._create_set_state(next_state)
@@ -465,28 +487,29 @@ class FA[LabelType, CharType]:
                 process_list.append(next_state)
 
         # create nodes dict for fa init
-        nodes_dict_for_fa_init: dict[FANodeID, FANode] = {}
+        nodes_dict_for_fa_init: dict[FANodeID, FANode[list[LabelType], CharType]] = {}
+
         for dict_item in dfa_states_dict.items():
             node = dict_item[1]
             nodes_dict_for_fa_init[node.nid] = node
 
         if new_fa:
-            new_fa = FA(nodes_dict=nodes_dict_for_fa_init)
+            new_fa_ins = FA(nodes_dict=nodes_dict_for_fa_init)
             if minimize:
-                new_fa.minimize(new_fa=False)
-            return new_fa
+                new_fa_ins.minimize(new_fa=False)
+            return new_fa_ins
         else:
-            self.nodes = nodes_dict_for_fa_init
+            self.nodes = nodes_dict_for_fa_init  # type:ignore
             if minimize:
                 self.minimize(new_fa=False)
-            return self
+            return self  # type: ignore
 
     def minimize(
-            self,
-            check_dfa: bool = False,
-            new_fa: bool = False,
-            skip_if_pointers_empty: bool = False
-    ) -> 'FA[LabelType, CharType]':
+        self,
+        check_dfa: bool = False,
+        new_fa: bool = False,
+        skip_if_pointers_empty: bool = False,
+    ) -> "FA[LabelType, CharType]":
         """
         Try to minimize this FA.
 
@@ -499,7 +522,9 @@ class FA[LabelType, CharType]:
         """
 
         if check_dfa and (not self.is_dfa()):
-            raise RuntimeError('Only Determined Finite Automaton should be minimized, you are trying to minimize a NFA')
+            raise RuntimeError(
+                "Only Determined Finite Automaton should be minimized, you are trying to minimize a NFA"
+            )
 
         if new_fa:
             return copy(self).minimize(new_fa=False)
@@ -510,7 +535,9 @@ class FA[LabelType, CharType]:
         # group nodes with same transition hash
         for node in self.nodes.values():
             transition_hash = node.hash_of_pointers(consider_is_end=True)
-            nodes_set_for_this_hash = transition_hash_dict.setdefault(transition_hash, set())
+            nodes_set_for_this_hash = transition_hash_dict.setdefault(
+                transition_hash, set()
+            )
             nodes_set_for_this_hash.add(node)
 
         # merge those with same hash
@@ -521,7 +548,53 @@ class FA[LabelType, CharType]:
         self.remove_unref_node()
         return self
 
-    def merge_nodes(self, nodes_set: set[FANode], skip_if_pointers_empty: bool = False) -> None:
+    def minimize_1(
+        self,
+        check_dfa: bool = False,
+        new_fa: bool = False,
+        skip_if_pointers_empty: bool = False,
+    ) -> "FA[LabelType, CharType]":
+        """
+        Try to minimize this FA.
+
+        Params:
+
+        - `check_dfa` If true, check if this FA is DFA before perform minimize
+        - `new_fa` If true, return a newly created FA
+
+        Notice that only DFA could be simplified.
+        """
+
+        if check_dfa and (not self.is_dfa()):
+            raise RuntimeError(
+                "Only Determined Finite Automaton should be minimized, you are trying to minimize a NFA"
+            )
+
+        if new_fa:
+            return copy(self).minimize(new_fa=False)
+
+        # store the node with certain transition hash
+        transition_hash_dict: dict[int, set[FANode]] = {}
+
+        # group nodes with same transition hash
+        for node in self.nodes.values():
+            transition_hash = node.hash_of_pointers(consider_is_end=True)
+            nodes_set_for_this_hash = transition_hash_dict.setdefault(
+                transition_hash, set()
+            )
+            nodes_set_for_this_hash.add(node)
+
+        # merge those with same hash
+        for nodes_set_with_same_hash in transition_hash_dict.values():
+            self.merge_nodes(nodes_set_with_same_hash, skip_if_pointers_empty)
+
+        # remove unref node
+        self.remove_unref_node()
+        return self
+
+    def merge_nodes(
+        self, nodes_set: set[FANode], skip_if_pointers_empty: bool = False
+    ) -> None:
         if len(nodes_set) < 2:
             return
 
@@ -538,16 +611,21 @@ class FA[LabelType, CharType]:
             std_node.pointers = i.pointers
             # add label
             try:
-                std_node.label.extend(i.label)
+                assert std_node.label is not None
+                std_node.label.extend(i.label)  # type: ignore
             except Exception:
-                raise RuntimeError('Could not deal with DFA Node label when merging nodes.')
+                raise RuntimeError(
+                    "Could not deal with DFA Node label when merging nodes."
+                )
 
         # skip if needed
-        if skip_if_pointers_empty and ((std_node.pointers is None) or (len(std_node.pointers) == 0)):
+        if skip_if_pointers_empty and (
+            (std_node.pointers is None) or (len(std_node.pointers) == 0)
+        ):
             return
 
         # add std_node to this fa
-        self.nodes[std_node.nid] = std_node
+        self.nodes[std_node.nid] = std_node  # type: ignore
 
         for node in self.nodes.values():
             # replace all pointers that point to nodes in this set to std node
@@ -563,7 +641,7 @@ class FA[LabelType, CharType]:
 
             # replace pointer to std node (add new pointer points to std_node, remove old pointer)
             for p in pointer_to_be_replaced:
-                node.pointers.append(tuple[CharType, FANodeID]([p[0], std_node.nid]))
+                node.pointers.append(tuple[CharType, FANodeID]([p[0], std_node.nid]))  # type: ignore
                 node.pointers.remove(p)
 
     def remove_unref_node(self) -> None:
@@ -589,7 +667,9 @@ class FA[LabelType, CharType]:
         self.nodes = ref_dict
 
     @staticmethod
-    def _create_set_state(state_set: set[FANode[LabelType, CharType]]) -> FANode[list[LabelType], CharType]:
+    def _create_set_state(
+        state_set: set[FANode[LabelType, CharType]]
+    ) -> FANode[list[LabelType], CharType]:
         """
         Create a new state from a set of states. Usually used when converting NFA to DFA
         """
@@ -601,12 +681,12 @@ class FA[LabelType, CharType]:
                 break
 
         # cat nid of old nodes as the new nid
-        new_nid: str = ','.join(str(st.nid) for st in state_set)
-        new_nid = '{' + new_nid + '}'
-        new_label = [st.label for st in state_set]
+        new_nid: str = ",".join(str(st.nid) for st in state_set)
+        new_nid = "{" + new_nid + "}"
+        new_label: list = [st.label for st in state_set]  # type: ignore
 
         # create new node
-        new_state_node = FANode(
+        new_state_node = FANode[list[LabelType], CharType](
             nid=new_nid,
             is_end=is_end_state,
             label=new_label,

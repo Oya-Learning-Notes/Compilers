@@ -358,6 +358,32 @@ class InvalidLHS(Exceptions): ...
 
 ---
 
+# Screenshot
+
+---
+
+![w:700](https://github.com/user-attachments/assets/007269cc-c3dd-490d-9e6b-d0efa67cb8bb)
+
+---
+
+![w:480](https://github.com/user-attachments/assets/1cba6ab7-49ac-49e0-aff9-28cce0357066)
+
+---
+
+![w:850](https://github.com/user-attachments/assets/c72e5415-2200-4e43-b43f-91c9168882d6)
+
+---
+
+![Epsilon Rules](https://github.com/user-attachments/assets/94190713-428a-46ed-901e-f5d14fce4ec7)
+
+---
+
+所有程序输出均被同时重定向到 `./chomsky_type.log` 以供查阅。
+
+![w:800](https://github.com/user-attachments/assets/7c7a29c2-60c2-4d33-a7ea-8f6da731384f)
+
+---
+
 # 小组分工
 
 - 程新亮：讨论算法，辅助文档编写。

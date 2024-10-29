@@ -66,6 +66,38 @@ flowchart TD
     RHSLongerThenLHS -->|no| 0
 ```
 
+### 可处理的空规则
+
+考虑任意一个乔姆斯基文法 $G=\{V_N, V_T, P, S\}$，其中的一个产生式 $P_i$ 如下：
+
+$$
+A \to \varepsilon
+$$
+
+我们认为其是一个可处理的空规则，当且仅当：
+
+- $A = S$
+- $S$ 不存在于任意产生式 $P_x$ 的右部
+
+在代码实现中：
+
+- 不符合第一条规则的文法（$A \neq S$）将会触发 `UnprocessableEpsilonRule` 错误。
+- 不符合第二条规则的文法（$S$出现在某产生式右部）将会触发 `EpsilonStartSymbolAtRHS` 错误。
+
+![Epsilon Rules](https://github.com/user-attachments/assets/94190713-428a-46ed-901e-f5d14fce4ec7)
+
+
+同时注意，当产生式列表中没有以开始符号推导出空串的规则时，我们就不需要在意 $S$ 是否出现在产生式右侧了，参见下面的例子：
+
+$$
+\begin{aligned}
+  S &\to A \\
+  A &\to SA | b
+\end{aligned}
+$$
+
+该文法不会触发错误。虽然 $S$ 作为开始符号，出现在了产生式的右侧（$A \to SA$），可是在这个文法中，**并不存在开始符号推导出空串的产生式 $S \to \varepsilon$**，故仍然是可处理的。
+
 ### 文法类型
 
 在完成$HC$的定义后，我们便可以通过遍历文法中产生式的方式，来确定该文法的 Chomsky Hierarhy。

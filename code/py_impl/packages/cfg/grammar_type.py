@@ -44,30 +44,35 @@ class EmptyLHS(ChomskyGrammarError):
 
 
 class InvalidLHS(ChomskyGrammarError):
-    def __init__(self):
+    def __init__(self, production: "ChomskyProduction | None" = None):
         super().__init__(
             name="invalid_left_hand_side",
             message="Left-hand side of a chomsky grammar must contain at least one non-terminal",
         )
 
+
 class UnprocessableEpsilonRule(ChomskyGrammarError):
-    def __init__(self,
-                  name='unprocessable_epsilon_rule',
-                  message='This epsilon rule could not be handled by current program',
-                  production: 'ChomskyProduction | None' = None,
-                  ):
+    def __init__(
+        self,
+        name="unprocessable_epsilon_rule",
+        message="This epsilon rule could not be handled by current program",
+        production: "ChomskyProduction | None" = None,
+    ):
         if production is not None:
             message += f" (Production: {production})"
         super().__init__(name, message)
 
+
 class EpsilonStartSymbolAtRHS(ChomskyGrammarError):
-    def __init__(self,
-                  name: str='epsilon_entry_at_rhs', 
-                  message:str="The grammar contains epsilon rules with start symbol" 
-                  "at left-hand side, however, the start symbol appeared as "
-                  "non-terminal at some right-hand side of some other productions. ",
-                 ):
+    def __init__(
+        self,
+        name: str = "epsilon_entry_at_rhs",
+        message: str = "The grammar contains epsilon rules with start symbol"
+        "at left-hand side, however, the start symbol appeared as "
+        "non-terminal at some right-hand side of some other productions. ",
+    ):
         super().__init__(name, message)
+
 
 class ChomskyProduction:
     """
@@ -227,7 +232,7 @@ class ChomskyGrammarSystem:
                 self.terminals.add(p)
             else:
                 raise ValueError(f"Invalid piece: {p}")
-        
+
         # check epsilon rules
         self.check_is_epsilon_rules_valid()
 
@@ -239,32 +244,30 @@ class ChomskyGrammarSystem:
             # found some rules with epsilon rhs
             if len(p.target) == 0:
                 # then the rule must be like S->...
-                if p.source[0] == self.entry and len(p.source) ==1:
+                if p.source[0] == self.entry and len(p.source) == 1:
                     has_epsilon_s_rule = True
                 else:
                     raise UnprocessableEpsilonRule(production=p)
-            
+
             # in the same loop, check if entry symbol appeared in rhs
             if self.entry in p.target:
                 entry_in_rhs = True
 
-        
         if has_epsilon_s_rule == True and entry_in_rhs:
             raise EpsilonStartSymbolAtRHS()
-                
 
     def eliminate_epsilon_rules(self):
         """
-        Eliminate the epsilon rules by modifying productions of 
+        Eliminate the epsilon rules by modifying productions of
         this grammar.
 
         Deprecated.
         """
+
         def replace_epsilon_nonterminal_in_rhs(nt: NonTerminal):
             nonlocal self
             for p in self.productions:
                 pass
-                
 
         mutated: bool = True
         while mutated:
@@ -275,7 +278,6 @@ class ChomskyGrammarSystem:
                 if len(p.target) == 0:
                     curr_epsilon_rule = p
                     break
-
 
     def __repr__(self) -> str:
         prod_str = (
@@ -410,7 +412,7 @@ cases: dict[
 
 def run_example_cases():
     logger.info("Start running test groups...")
-    logger.info(f"Test Cases: {pretty_repr(HIERARCHY_TEXT)}")
+    logger.info(f"Hierarchy Text Table: {pretty_repr(HIERARCHY_TEXT)}")
 
     for case_name, case_prod in cases.items():
         if callable(case_prod):
