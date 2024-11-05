@@ -5,3 +5,6 @@ output
 
 # ignore log
 *.log
+
+# ignore generated graph
+/graphviz
