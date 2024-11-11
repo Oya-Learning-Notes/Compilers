@@ -158,6 +158,7 @@ class FADiGraph[LabelType, CharType]:
 
         # initialize object
         self._graphviz_obj = gv.Digraph(self.name)
+        self._graphviz_obj.attr("graph", rankdir='LR')
 
         # add node to digraph
         for nid, node in fa.nodes.items():

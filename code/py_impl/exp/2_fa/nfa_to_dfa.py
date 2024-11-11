@@ -133,17 +133,19 @@ def create_fa_node_from_lines(lines: Sequence[str]):
     return FA(nodes_dict=nodes_dict)
 
 
-_test_case = [
-    "start:1",
-    "end:4",
-    # "1->4",
-    "1->1:a,b",
-    "1->2:a",
-    "1->3:b",
-    "2->4:a",
-    "3->4:b",
-    "4->4:a,b",
-]
+_test_case = """
+start:1
+end:4
+end:3
+1->1:a,b
+1->2:a
+1->3:b
+2->4:a
+3->4:b
+4->4:a,b
+""".split(
+    "\n"
+)
 
 
 def main():
