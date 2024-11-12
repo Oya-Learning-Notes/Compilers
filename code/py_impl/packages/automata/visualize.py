@@ -158,7 +158,7 @@ class FADiGraph[LabelType, CharType]:
 
         # initialize object
         self._graphviz_obj = gv.Digraph(self.name)
-        self._graphviz_obj.attr("graph", rankdir='LR')
+        self._graphviz_obj.attr("graph", rankdir="LR")
 
         # add node to digraph
         for nid, node in fa.nodes.items():
@@ -174,7 +174,7 @@ class FADiGraph[LabelType, CharType]:
                 if self.style.create_start_pointers:
                     # create invisible node
                     self._graphviz_obj.node(
-                        f"start_pointers_{nid}", label="", shape="plaintext"
+                        name=f"start_pointers_{nid}", label="", shape="plaintext"
                     )
                     # add arrow from invisible node to the start node
                     self._graphviz_obj.edge(
@@ -188,8 +188,11 @@ class FADiGraph[LabelType, CharType]:
                 node_shape = self.style.normal_node_shape
 
             assert self.style.get_node_label is not None
+
             self._graphviz_obj.node(
-                str(nid), label=self.style.get_node_label(nid, node), shape=node_shape
+                name=str(nid),
+                label=self.style.get_node_label(nid, node),
+                shape=node_shape,
             )
 
         # add edges
@@ -220,6 +223,6 @@ class FADiGraph[LabelType, CharType]:
         self._graphviz_obj.render(
             filename=f"{self.name}",
             directory="./graphviz",
-            format='png',
+            format="pdf",
             **kwargs,
         )
