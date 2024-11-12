@@ -216,9 +216,10 @@ class FADiGraph[LabelType, CharType]:
             )
         return self._graphviz_obj
 
-    def render(self):
+    def render(self, **kwargs):
         self._graphviz_obj.render(
             filename=f"{self.name}",
             directory="./graphviz",
-            view=True,
+            format='png',
+            **kwargs,
         )

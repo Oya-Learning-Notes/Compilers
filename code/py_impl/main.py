@@ -32,7 +32,7 @@ binary_graph = fa.visualize.FADiGraph(
     get_node_label=get_label_for_set_of_state,
 ).from_fa(binary_expr.to_fa().to_dfa())
 
-binary_graph.get_graph().render(directory="output", view=True)
+binary_graph.get_graph().render(directory="output", format='png')
 
 # create Lexical Analyzer
 analyzer = la.LexicalAnalyzer(
