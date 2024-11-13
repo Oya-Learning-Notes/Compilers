@@ -29,25 +29,27 @@ class CharExpr(RegularExpr):
         self._char = char
 
     def to_fa(self) -> fa.FA:
-        start_node = fa.FANode(is_start=True)
-        end_node = fa.FANode(is_end=True)
+        start_node: fa.FANode = fa.FANode(is_start=True)
+        end_node: fa.FANode = fa.FANode(is_end=True)
         start_node.point_to(self._char, end_node.nid)
         return fa.FA([start_node, end_node])
+
 
 class AddListExpr(RegularExpr):
     def __init__(self, expr_list: list[RegularExpr]):
         self.expr_list = expr_list
-    
+
     def to_fa(self):
-        if len(self.expr_list) <2:
+        if len(self.expr_list) < 2:
             return self.expr_list[0].to_fa()
-        
+
         new_expr = AddExpr(self.expr_list[0], self.expr_list[1])
 
         for idx in range(2, len(self.expr_list)):
             new_expr = AddExpr(new_expr, self.expr_list[idx])
-        
+
         return new_expr.to_fa()
+
 
 class AddExpr(RegularExpr):
     """
@@ -55,6 +57,7 @@ class AddExpr(RegularExpr):
 
     AddExpr(A, B) -> A|B
     """
+
     _left: RegularExpr
     _right: RegularExpr
 
@@ -64,8 +67,8 @@ class AddExpr(RegularExpr):
         self._right = right
 
     def to_fa(self) -> fa.FA:
-        start_node = fa.FANode(is_start=True, label='And_S')
-        end_node = fa.FANode(is_end=True, label='And_E')
+        start_node: fa.FANode = fa.FANode(is_start=True, label="And_S")
+        end_node: fa.FANode = fa.FANode(is_end=True, label="And_E")
 
         # convert two sub regex to fa
         left_fa = self._left.to_fa()
@@ -97,6 +100,7 @@ class AddExpr(RegularExpr):
 
         return fa.FA(node_dict)
 
+
 class MulListExpr(RegularExpr):
     """
     Implement a chian multiple operation.
@@ -108,21 +112,21 @@ class MulListExpr(RegularExpr):
         self.expr_list = expr_list
         self._new_expr: RegularExpr
         self._construct_new_expr()
-    
+
     def to_fa(self):
         return self._new_expr.to_fa()
-    
+
     def _construct_new_expr(self):
         if len(self.expr_list) < 2:
             return self.expr_list[0]
-        
+
         new_expr = MulExpr(self.expr_list[0], self.expr_list[1])
 
         for idx in range(2, len(self.expr_list)):
             new_expr = MulExpr(new_expr, self.expr_list[idx])
-        
+
         self._new_expr = new_expr
-    
+
 
 class MulExpr(RegularExpr):
     """
@@ -140,9 +144,9 @@ class MulExpr(RegularExpr):
         self._right = right
 
     def to_fa(self) -> fa.FA:
-        start_node = fa.FANode(is_start=True, label='Mul_S')
-        end_node = fa.FANode(is_end=True, label='Mul_E')
-        mid_start_node = fa.FANode(label='Mul_M')
+        start_node: fa.FANode = fa.FANode(is_start=True, label="Mul_S")
+        end_node: fa.FANode = fa.FANode(is_end=True, label="Mul_E")
+        mid_start_node: fa.FANode = fa.FANode(label="Mul_M")
 
         left_fa = self._left.to_fa()
         right_fa = self._right.to_fa()
@@ -192,9 +196,9 @@ class WildCardExpr(RegularExpr):
         self._left = left
 
     def to_fa(self) -> fa.FA:
-        start_node = fa.FANode(is_start=True, label='WC_S')
-        matched_node = fa.FANode(label='WC_M')
-        end_node = fa.FANode(is_end=True, label='WC_E')
+        start_node: fa.FANode = fa.FANode(is_start=True, label="WC_S")
+        matched_node: fa.FANode = fa.FANode(label="WC_M")
+        end_node: fa.FANode = fa.FANode(is_end=True, label="WC_E")
 
         left_fa = self._left.to_fa()
 
@@ -227,14 +231,18 @@ class WildCardExpr(RegularExpr):
 
 
 class CharListExpr(RegularExpr):
-    _char_list: Iterable
+    """
+    Match a set of chars.
 
-    def __init__(self, char_list: Iterable):
-        self._char_list = char_list
+    CharListExpr('abc') -> a|b|c
+    """
+
+    def __init__(self, char_list: Iterable[str]):
+        self._char_list: Iterable[str] = char_list
 
     def to_fa(self) -> fa.FA:
-        start_node = fa.FANode(is_start=True)
-        end_node = fa.FANode(is_end=True)
+        start_node: fa.FANode = fa.FANode(is_start=True)
+        end_node: fa.FANode = fa.FANode(is_end=True)
         for char in self._char_list:
             start_node.point_to(char, end_node.nid)
 

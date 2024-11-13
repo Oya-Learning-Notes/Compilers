@@ -147,15 +147,20 @@ def create_fa_node_from_lines(lines: Sequence[str]):
 
 _test_case = """
 start:1
-end:4
-1->1:a,b
-1->6:c
-1->2:a
-1->3:b
-2->4:a
-3->4:b
-5->4:c
-4->4:a,b
+end:8
+1->2
+2->2:b
+2->3:c
+3->8
+1->4
+4->9:a
+9->10:b
+10->5:c
+5->8
+1->6
+6->6:b,c
+6->7:a
+7->8
 """.split(
     "\n"
 )

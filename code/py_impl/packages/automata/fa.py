@@ -213,8 +213,11 @@ class FA[LabelType, CharType]:
         old_nid_to_new_nid: dict[str, str] = dict()
 
         # create new nodes using deepcopy
+        label_count = 0
         for nid, n in self.nodes.items():
+            label_count += 1
             new_n = n.__deepcopy__()
+            new_n.label = str(label_count)
             old_to_new_nodes[n] = new_n  # type: ignore
             old_nid_to_new_nid[nid] = new_n.nid
 
