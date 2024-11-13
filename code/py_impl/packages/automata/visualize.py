@@ -1,4 +1,4 @@
-from typing import Callable, Any, Literal
+from typing import Callable, Any, Literal, Iterable
 from dataclasses import dataclass, replace
 from functools import wraps, partialmethod
 import graphviz as gv
@@ -132,7 +132,7 @@ class FADiGraph[LabelType, CharType]:
             self.from_fa(fa)
 
     @staticmethod
-    def get_node_label_default(nid: str, node: FANode[LabelType, CharType]) -> str:
+    def _get_node_label_default(nid: str, node: FANode[LabelType, CharType]) -> str:
         """
         Default function used to generate the label of a node int .dot file.
         """
@@ -141,6 +141,38 @@ class FADiGraph[LabelType, CharType]:
             ret_str += f" {node.label}"
 
         return ret_str
+
+    @staticmethod
+    def get_node_label_default(nid: str, node: FANode)->str:
+        label_repr = ""
+        label = node.label
+
+        def get_repr_from_label(label) -> str:
+            """
+            Deal with str, int, Iterable
+            """
+
+            if isinstance(label, str):
+                return label
+
+            if isinstance(label, Iterable):
+                repr_str = "{"
+                for i in label:
+
+                    addition = f"{get_repr_from_label(i)},"
+                    if len(addition) > 5:
+                        addition += "\n"
+                    else:
+                        addition += " "
+
+                    repr_str += addition
+                repr_str = repr_str[:-2] + "}"
+                return repr_str
+
+            return str(label)
+
+        return get_repr_from_label(label)
+
 
     @staticmethod
     def get_edge_label_default(edge_info: tuple[object, str]):
@@ -219,10 +251,10 @@ class FADiGraph[LabelType, CharType]:
             )
         return self._graphviz_obj
 
-    def render(self, **kwargs):
+    def render(self, format="pdf", **kwargs):
         self._graphviz_obj.render(
             filename=f"{self.name}",
             directory="./graphviz",
-            format="pdf",
+            format=format,
             **kwargs,
         )

@@ -7,4 +7,4 @@ output
 *.log
 
 # ignore generated graph
-/graphviz
+/**/graphviz
