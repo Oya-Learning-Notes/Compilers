@@ -138,6 +138,25 @@ class FANode[LabelType, FAChar]:
         self.pointers.append(pointer_tuple)
         return True
 
+    def get_acceptable_charset(self) -> frozenset[FAChar | None]:
+        """
+        Return a frozenset of acceptable transition char of this node
+        """
+        charset: set[FAChar | None] = set()
+        for char, nid in self.pointers:
+            charset.add(char)
+
+        return frozenset(charset)
+
+    def hash_of_acceptable_charset(self) -> int:
+        """
+        Return the hash value of the set of acceptable transaction char.
+
+        This method is usually used by the DFA minimize process.
+        """
+        charset = self.get_acceptable_charset()
+        return hash(charset)
+
     def hash_of_pointers(self, consider_is_end: bool = False) -> int:
         """
         Return logical hash values of a group of pointers.
@@ -156,9 +175,9 @@ class FANode[LabelType, FAChar]:
         pointers_set = set(
             self.pointers
         )  # convert pointers list to set. This will ignore order & remove duplicated
-        hashval = hash(tuple(pointers_set))
+        hashval = hash(frozenset(pointers_set))
         if consider_is_end:
-            hashval = hash(tuple([hashval, self.is_end]))
+            hashval = hash(frozenset([hashval, self.is_end]))
         return hashval
 
 
@@ -654,14 +673,14 @@ class FA[LabelType, CharType]:
         # index two init sets
         equivalent_nodes_set.extend([_normal_nodes_set, _accept_nodes_set])
 
-        def divide_nodes_by_pointers_hash(nodes_set: set[FANode[LabelType, CharType]]):
-            pointer_hash_dict: dict[int, set[FANode[LabelType, CharType]]] = dict()
+        def divide_nodes_by_acceptable_charset(nodes_set: set[FANode[LabelType, CharType]]):
+            charset_hash_dict: dict[int, set[FANode[LabelType, CharType]]] = dict()
 
             for n in nodes_set:
-                hash_val = hash(n.hash_of_pointers())
-                pointer_hash_dict.setdefault(hash_val, set()).add(n)
+                hash_val = hash(n.hash_of_acceptable_charset())
+                charset_hash_dict.setdefault(hash_val, set()).add(n)
 
-            return pointer_hash_dict
+            return charset_hash_dict
 
         def divide_nodes_by_transition_target_set_idx(
             nodes_set: set[FANode[LabelType, CharType]], char: CharType | None
@@ -715,7 +734,7 @@ class FA[LabelType, CharType]:
             for set_idx in range(len(equivalent_nodes_set)):
                 nodes_set = equivalent_nodes_set[set_idx]
 
-                pointers_map = divide_nodes_by_pointers_hash(nodes_set=nodes_set)
+                pointers_map = divide_nodes_by_acceptable_charset(nodes_set=nodes_set)
                 if len(pointers_map) > 1:
                     logger.debug("Pointers of these node not equal!")
                     neq_set_idx = set_idx
