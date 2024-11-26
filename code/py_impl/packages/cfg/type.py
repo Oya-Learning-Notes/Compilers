@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from collections import defaultdict
+from typing import cast
 from loguru import logger
 
 __all__ = [
@@ -39,6 +41,11 @@ class NonTerminal(Piece):
 
 @dataclass
 class Derivation:
+    """
+    Class that represents the RHS(Right-hand side)
+    of a production in CFG(Context-free grammar)
+    """
+
     pieces: list[Piece] | None  # None means this production could derive into epsilon
 
     def __hash__(self):
@@ -75,8 +82,6 @@ class CFGSystem:
         self.production_list = production_list
         """list to store all productions in this CFG system."""
 
-        self.used_pieces: set[Piece] = set()
-
         self.entry = entry
         """
         indicate the parsing entry of this CFG.
@@ -84,6 +89,7 @@ class CFGSystem:
         """
         self.production_dict: dict[NonTerminal, set[Production]] = {}
         """generated production dict, key is source, value is set of Derivation"""
+
         self.used_pieces: set[Piece] = set()
         """The pieces used in this CFG"""
 
@@ -91,9 +97,14 @@ class CFGSystem:
         """
         store first set of each piece
         """
-        self.follow_sets: dict[Piece, set[Terminal]] = {}
+        self.follow_sets: dict[Piece, set[Terminal | None]] = {}
         """
-        store follow set
+        store follow set of NonTerminal
+        
+        Follow set of terminal has no use cases in parser. 
+        
+        For the meaning of `None` inside follow set, checkout docstring 
+        of follow set generating function `generate_follow_set_iteratively()`
         """
 
         self._recur_runtime_set: set[Piece] = set()
@@ -102,6 +113,14 @@ class CFGSystem:
         """store the piece that led to recursive circular if exists"""
         self._is_recur_when_calc_follow: bool = True
         """Temp value used internally"""
+
+        # following are also temporary values.
+        # the meaning and usage is similar to variables above,
+        # with the only difference that these values are used
+        # when calculating first sets.
+        self._recur_runtime_set_first: set[Piece] = set()
+        self._recur_piece_detected_in_calc_first: Piece | None = None
+        self._is_recur_when_calc_first: bool = True
 
         # init used_pieces
         for prod in self.production_list:
@@ -125,14 +144,11 @@ class CFGSystem:
             )
 
         self.generate_production_dict()
-        self.generate_first_set()
-        self.generate_follow_set()
 
-    def get_grammar_type(self):
-        """
-        Return an `int` number representing the chomsky grammar type
-        of this Grammar System.
-        """
+        # here use newly created iterative method instead of old
+        # patched recursive method (since the new one is more elegant lol)
+        self.generate_first_set_iteratively()
+        self.generate_follow_set_iteratively()
 
     def generate_production_dict(self):
         # init dict
@@ -152,7 +168,7 @@ class CFGSystem:
         """
         Return a set of all derivations of the received `source`.
 
-        Raise KeyError if `source` not in this CFG productions
+        Return empty set if `source` not in any RHS this CFG productions
         """
         # notice the data depend on self.generate_production_dict
         derivations: set[Derivation] = set()
@@ -173,7 +189,7 @@ class CFGSystem:
                 self.calc_first_set(piece)
             self._is_recur_when_calc_first = False
 
-    def calc_first_set_of_pieces(self, pieces: list[Piece]) -> set[Piece | None]:
+    def calc_first_set_of_pieces(self, pieces: list[Piece]) -> set[Terminal | None]:
         """
         Calculate FIRST set of a custom pieces.
 
@@ -246,7 +262,7 @@ class CFGSystem:
             return {piece}
 
         # if it's non-terminal, first of all, get all possible derivation
-        piece: NonTerminal  # type mark
+        piece = cast("NonTerminal", piece)
         first_set: set[Terminal | None] = set()
         contains_epsilon: bool = False
         derivations_set: set[Derivation] = self.get_all_derivation(piece)
@@ -304,6 +320,107 @@ class CFGSystem:
         ):
             self.first_sets[piece] = first_set
         return first_set
+
+    def generate_first_set_iteratively(self) -> None:
+        """
+        Generate first set of all used pieces using iterative method.
+        """
+
+        current_first_sets_state: dict[Piece, set[Terminal | None]] = defaultdict(set)
+        """
+        Store current state of first sets info.
+        
+        This state will mutated with the iteration going forward, 
+        and at the time that iteration will not make any update 
+        on the state, the algorithm finished.
+        """
+        # for more info about default dict, checkout:
+        # https://docs.python.org/3/library/collections.html#collections.defaultdict
+
+        def calc_first_set_based_on_curr_state() -> bool:
+            nonlocal current_first_sets_state
+
+            mutated: bool = False
+
+            for piece in self.used_pieces:
+
+                piece_fisrt_set = current_first_sets_state[piece]
+                """Current first set state of currently processing piece"""
+
+                prev_first_set_size = len(piece_fisrt_set)
+
+                # if piece is terminal, return set with only itself inside.
+                if isinstance(piece, Terminal):
+                    piece_fisrt_set.add(piece)
+                    if len(piece_fisrt_set) > prev_first_set_size:
+                        mutated = True
+                    continue
+
+                # if it's non-terminal, first of all, get all possible derivation
+
+                piece = cast("NonTerminal", piece)  # type narrowed to non-terminal
+
+                # record that if this non-terminal could deduce to epsilon
+                contains_epsilon: bool = False
+
+                # all possible derivation sequence that use this non-terminal as LHS
+                derivations_set: set[Derivation] = self.get_all_derivation(piece)
+
+                # deal with each RHS with current NonTerminal as source
+                # update first set state in plcae
+                for derivation in derivations_set:
+
+                    # if this non-terminal could be derived to epsilon, then first set contains epsilon
+                    if derivation.pieces is None:
+                        contains_epsilon = True
+                        continue
+
+                    # loop through each part of the derivation
+                    all_contains_epsilon_until_now: bool = True
+                    for cur_piece_in_derivation in derivation.pieces:
+
+                        # here means some symbol before this piece is non-epsilonable
+                        # not need to continue in this case, this symbol will not affect first set
+                        if not all_contains_epsilon_until_now:
+                            break
+
+                        # use current first set state
+                        cur_piece_first_set = current_first_sets_state[
+                            cur_piece_in_derivation
+                        ]
+
+                        # if all first set of the parts before contains epsilon
+                        # then first set of this part should be added to first set of the source
+                        piece_fisrt_set.update(cur_piece_first_set)
+
+                        if not (None in cur_piece_first_set):
+                            all_contains_epsilon_until_now = False
+
+                    if all_contains_epsilon_until_now:
+                        contains_epsilon = True
+
+                # add epsilon into the set if needed
+                if contains_epsilon:
+                    piece_fisrt_set.add(None)
+                else:
+                    try:
+                        piece_fisrt_set.remove(None)
+                    except KeyError:
+                        pass
+
+                # check if first set size changed
+                if len(piece_fisrt_set) > prev_first_set_size:
+                    mutated = True
+
+            return mutated
+
+        # if the state mutated, calc_first_set_based_on_curr_state will return True
+        # which will cause loop continue, until nothing changed anymore.
+        while calc_first_set_based_on_curr_state():
+            pass
+
+        # adopt the final state as the result of first sets
+        self.first_sets = current_first_sets_state
 
     def generate_follow_set(self) -> None:
         """
@@ -407,6 +524,110 @@ class CFGSystem:
             pass
 
         return follow_set
+
+    def generate_follow_set_iteratively(self) -> None:
+        """
+        Generate follow set of all used pieces using iterative method.
+        Must call generate_first_set_iterative() before calling this method.
+
+        Note that `None` in follow set indicates that
+        this symbol is deductable/productable under any condition.
+
+        In the following algorithm, we put `None` inside the follow set of start symbol,
+        essentially means:
+        - In LL parser, When faced with any production with start symbol as LHS, perform production.
+          (Actually there should be only one production use start symbol as LHS, so there
+          should NOT be a chance that program use start set or follow set to resolve conflict)
+        - When faced with any reducable-string that reduced to the start symbol using Bottom-up parser,
+          reduce with no limit.
+          This indicates that there should be NO any production that has
+          a reduce-reduce conflict with Production that use start symbol as left-hand side.
+          (In augmented grammar, there should be only one grammar related to start symbol S')
+          Or in another case,  such conflict doesn't matter. (For example, start symbol S could produce lot of
+          different derivation which may cause reduce-reduce error, however they all reduced to
+          start symbol, so conflict doesn't matter)
+        """
+        current_follow_sets_state: dict[Piece, set[Terminal | None]] = defaultdict(set)
+
+        # Start symbol's follow set includes end-of-input marker (None or "$")
+        start_symbol = self.entry
+        if start_symbol is not None:
+            # None in follow set represent reducuction with no limit.
+            current_follow_sets_state[start_symbol].add(None)
+
+        def calc_follow_set_based_on_curr_state() -> bool:
+            nonlocal current_follow_sets_state
+            mutated: bool = False
+
+            # iterate all productions
+            for cur_prod in self.production_list:
+                cur_prod_source = cur_prod.source
+
+                # If RHS is epsilon, skip processing
+                if cur_prod.target.pieces is None:
+                    continue
+
+                # Temporary follow set for lhs of currently processing production
+                # used in later loop to update follow set of rhs
+                cur_lhs_follow_set: set[Terminal | None] = current_follow_sets_state[
+                    cur_prod_source
+                ]
+
+                # bool flag used in following loop
+                all_contains_epsilon_until_now: bool = True
+
+                pieces_count = len(cur_prod.target.pieces)
+                # loop through each part in derivation in reverse order
+                for i in range(pieces_count - 1, -1, -1):
+
+                    # extract some values for later ref
+
+                    cur_piece = cur_prod.target.pieces[i]
+
+                    cur_piece_follow_set = current_follow_sets_state[cur_piece]
+
+                    # first set should be calculated already by calling generated_first_set_iteratively()
+                    cur_piece_first_set = self.first_sets[cur_piece]
+
+                    # store size of follow set of current piece before change
+                    # used later to decided if state mutated
+                    cur_piece_prev_len = len(cur_piece_follow_set)
+
+                    # read next piece first set if exists (that is, if this is not the last piece)
+                    # used later to update follow set of current piece
+                    next_piece_first_set = None
+                    if i != pieces_count - 1:
+                        next_piece_first_set = self.first_sets[
+                            cur_prod.target.pieces[i + 1]
+                        ]
+
+                    # if this is the last element, or not the last, but all part behind it could become epsilon
+                    # then follow(source) \subset follow(piece)
+                    if all_contains_epsilon_until_now:
+                        cur_piece_follow_set.update(cur_lhs_follow_set)
+
+                        # if this piece could not reduce to epsilon (None not in the first set)
+                        # then update flag
+                        if None not in cur_piece_first_set:
+                            all_contains_epsilon_until_now = False
+
+                    # if not the last one, add the first set of the following piece
+                    # to the follow set of current piece
+                    if next_piece_first_set:
+                        cur_piece_follow_set.update(next_piece_first_set)
+
+                    # check if cur_piece is mutated
+                    if len(cur_piece_follow_set) > cur_piece_prev_len:
+                        mutated = True
+
+            return mutated
+
+        # Iterate until no mutation occurs
+        while calc_follow_set_based_on_curr_state():
+            pass
+
+        # Adopt the final state as the result of follow sets
+        self.follow_sets = current_follow_sets_state
 
 
 # a -> bc

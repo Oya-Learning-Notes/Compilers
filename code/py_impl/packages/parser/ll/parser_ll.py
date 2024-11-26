@@ -1,4 +1,5 @@
 from copy import copy
+from typing import cast
 import cfg
 from lexical_analyzer import TokenPair
 
@@ -6,10 +7,10 @@ from .. import errors as general_err
 from ..parse_tree import ParseTree, ParseTreeNode
 
 __all__ = [
-    'LLParser',
-    'LLParseTable',
-    'NoValidMove',
-    'ParseTableConflictError',
+    "LLParser",
+    "LLParseTable",
+    "NoValidMove",
+    "ParseTableConflictError",
 ]
 
 
@@ -17,12 +18,21 @@ class LLParseTable:
     """
     Implementation of LL(1) parse table, but using dict and hash algorithm instead of 2-dim array.
     """
+
     # the Context-Free Grammar of this LL parse table
     cfg_system: cfg.CFGSystem
 
     # dict to store parse table item.
     # Pattern: parse_table[non_terminal][lookahead] = derivation
-    parse_dict: dict[cfg.NonTerminal, dict[cfg.Terminal, cfg.Production]]
+    parse_dict: dict[cfg.NonTerminal, dict[cfg.Terminal | None, cfg.Production]]
+    """
+    Parse dict used in this LL Parse Table.
+    
+    Pattern: parse_table[non_terminal][lookahead] = derivation.
+    
+    Which means for a current non_terminal, when we have lookahead, 
+    what derivation we should use for deduction.
+    """
 
     def __init__(self, cfg_system: cfg.CFGSystem):
         self.cfg_system = cfg_system
@@ -48,7 +58,7 @@ class LLParseTable:
                     self.set(source, terminal, prod)
                 continue
 
-                # deal with item in first set
+            # deal with item in first set
             target_first_set = self.cfg_system.first_sets[target.pieces[0]]
             for terminal in target_first_set:
                 self.set(source, terminal, prod)
@@ -60,7 +70,9 @@ class LLParseTable:
             for terminal in target_follow_set:
                 self.set(source, terminal, prod)
 
-    def get(self, non_terminal: cfg.NonTerminal, lookahead: cfg.Terminal | TokenPair) -> cfg.Production:
+    def get(
+        self, non_terminal: cfg.NonTerminal, lookahead: cfg.Terminal | TokenPair | None
+    ) -> cfg.Production:
         """
         Try get item from parse dict
 
@@ -69,38 +81,46 @@ class LLParseTable:
         Raise ``DerivationNotFoundError`` when item not found in parse table.
         """
         # convert token pair to Terminal instance if needed
-        terminal: cfg.Terminal = lookahead
+
+        terminal: cfg.Terminal | None = None
         if isinstance(lookahead, TokenPair):
             terminal = cfg.Terminal(name=lookahead.token_type)
+        else:
+            # assert isinstance(lookahead, cfg.Terminal)
+            terminal = lookahead
 
         try:
             return self.parse_dict[non_terminal][terminal]
         except KeyError:
             raise NoValidMove(non_terminal, terminal)
 
-    def set(self, non_terminal: cfg.NonTerminal, lookahead: cfg.Terminal, production: cfg.Production) -> None:
+    def set(
+        self,
+        non_terminal: cfg.NonTerminal,
+        lookahead: cfg.Terminal | None,
+        production: cfg.Production,
+    ) -> None:
         """
         Try to set item from parse dict
 
-        Exceptions:
-        - ``ParseTableConflictError`` when parse table conflict detected.
+        Raises:
+            ParseTableConflictError: when parse table conflict detected.
         :return:
         """
         # check move conflict
         try:
-            res = self.get(non_terminal, lookahead)  # expected to raise DerivationError here
+            res = self.get(
+                non_terminal, lookahead
+            )  # expected to raise DerivationError here
 
             # item already exists, return
             if res == production:
                 return
 
                 # if already have result, then parse table conflict occurred
-            raise ParseTableConflictError(
-                non_terminal,
-                lookahead,
-                {res, production}
-            )
+            raise ParseTableConflictError(non_terminal, lookahead, {res, production})
         except NoValidMove:
+            # expected error
             pass
 
         # add move
@@ -118,13 +138,15 @@ class LLParser:
     _lookahead: TokenPair | None
     _epsilon_terminal: cfg.Terminal | None
 
-    def __init__(self, cfg_system: cfg.CFGSystem, epsilon_terminal: cfg.Terminal | None = None):
+    def __init__(
+        self, cfg_system: cfg.CFGSystem, epsilon_terminal: cfg.Terminal | None = None
+    ):
         self._epsilon_terminal = epsilon_terminal
         try:
             # init parse table
             self.parse_table = LLParseTable(cfg_system)
         except Exception as e:
-            raise general_err.CFGIncompatibleError(parser_type='LL(1)') from e
+            raise general_err.CFGIncompatibleError(parser_type="LL(1)") from e
 
     def init_state(self, token_list: list[TokenPair]) -> None:
         """
@@ -139,7 +161,7 @@ class LLParser:
         if entry_piece is None:
             raise general_err.EntryUndefinedError()
         self._parse_tree = ParseTree(
-            start_nodes=[ParseTreeNode(node_type=self.parse_table.cfg_system.entry)],
+            start_nodes=[ParseTreeNode(node_type=entry_piece)],
             epsilon_terminal=self._epsilon_terminal,
         )
         self._lookahead = self._token_list[0]
@@ -190,7 +212,7 @@ class LLParser:
 
         # update parse tree
         new_pieces = move_info.target.pieces
-        self._parse_tree.derive_non_terminal(index, new_pieces)
+        self._parse_tree.derive_non_terminal(index, new_pieces, move_info)
 
     def _match_terminal_forward(self):
         """
@@ -222,12 +244,16 @@ class LLParser:
             token_pair = self._token_list[idx]
             node_type: cfg.Piece = self._parse_tree.leaves[idx].node_type
 
-            node_type: cfg.Terminal  # it should be terminal if the get_first_non_terminal_info() method is correct
+            # it should be terminal if the get_first_non_terminal_info() method is correct
+            node_type = cast("cfg.Terminal", node_type)
+
             is_match = token_pair.is_match(node_type)
 
             # if piece and token not match, raise error
             if not is_match:
-                raise general_err.TokenNotMatchError(token=self._token_list[idx], piece=node_type, index=idx)
+                raise general_err.TokenNotMatchError(
+                    token=self._token_list[idx], piece=node_type, index=idx
+                )
 
         # match success, update parsed index and lookahead
         self._parsed_count = match_end
@@ -238,20 +264,22 @@ class LLParser:
 
 
 class NoValidMove(Exception):
-    def __init__(self, non_terminal: cfg.NonTerminal, lookahead: cfg.Terminal):
-        super().__init__(f'Could not found derivation for NonTerminal {non_terminal} with lookahead {lookahead}')
+    def __init__(self, non_terminal: cfg.NonTerminal, lookahead: cfg.Terminal | None):
+        super().__init__(
+            f"Could not found derivation for NonTerminal {non_terminal} with lookahead {lookahead}"
+        )
 
 
 class ParseTableConflictError(Exception):
     def __init__(
-            self,
-            non_terminal: cfg.NonTerminal,
-            lookahead: cfg.Terminal,
-            conflict_moves: set[cfg.Production],
+        self,
+        non_terminal: cfg.NonTerminal,
+        lookahead: cfg.Terminal | None,
+        conflict_moves: set[cfg.Production],
     ):
         super().__init__(
-            f'Move conflict occurred when generating LL(1) Parse Table on '
-            f'NonTerminal {non_terminal} with lookahead {lookahead}. '
-            f'Sets of conflict moves: {conflict_moves}, '
-            f'perhaps a left factoring is needed. '
+            f"Move conflict occurred when generating LL(1) Parse Table on "
+            f"NonTerminal {non_terminal} with lookahead {lookahead}. "
+            f"Sets of conflict moves: {conflict_moves}, "
+            f"perhaps a left factoring is needed. "
         )
