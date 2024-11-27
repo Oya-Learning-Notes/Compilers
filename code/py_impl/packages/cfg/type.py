@@ -200,17 +200,20 @@ class CFGSystem:
                 self.calc_first_set(piece)
             self._is_recur_when_calc_first = False
 
-    def calc_first_set_of_pieces(self, pieces: list[Piece]) -> set[Terminal | None]:
+    def calc_first_set_of_pieces(
+        self, pieces: list[Piece] | None
+    ) -> set[Terminal | None]:
         """
-        Calculate FIRST set of a custom pieces.
-
-        When constructing some LR parse table, we may need to calculate the first set of a list of pieces.
+        Calculate first set of a custom pieces.
 
         Notice:
 
         - All pieces in list should be in used_pieces set.
         - Please ensure `generate_first_set_iteratively()` be called before calling this method.
         """
+        if pieces is None:
+            return {None}
+
         # raise runtime error if list empty
         if len(pieces) == 0:
             raise RuntimeError(
@@ -219,6 +222,7 @@ class CFGSystem:
 
         # the flag indicates if all previous scanned piece could be None.
         contains_epsilon_until_now: bool = True
+
         # store the result of calculated first set
         res_first_set: set[Terminal | None] = set()
 
@@ -558,6 +562,7 @@ class CFGSystem:
           different derivation which may cause reduce-reduce error, however they all reduced to
           start symbol, so conflict doesn't matter)
         """
+        logger.debug("Start generating follow set iteratively...")
         current_follow_sets_state: dict[Piece, set[Terminal | None]] = defaultdict(set)
 
         # Start symbol's follow set includes end-of-input marker (None or "$")
@@ -584,6 +589,19 @@ class CFGSystem:
                     cur_prod_source
                 ]
 
+                # at this point, RHS must NOT be empty
+
+                # For production A -> ab...xyz, add follow(A) to follow(z) unconditionally
+                right_most_symbol_follow_set = current_follow_sets_state[
+                    cur_prod.target.pieces[-1]
+                ]
+                prev_len = len(right_most_symbol_follow_set)
+
+                right_most_symbol_follow_set.update(cur_lhs_follow_set)
+
+                if len(right_most_symbol_follow_set) > prev_len:
+                    mutated = True
+
                 # bool flag used in following loop
                 all_contains_epsilon_until_now: bool = True
 
@@ -604,28 +622,50 @@ class CFGSystem:
                     # used later to decided if state mutated
                     cur_piece_prev_len = len(cur_piece_follow_set)
 
-                    # read next piece first set if exists (that is, if this is not the last piece)
+                    # read next piece first set and follow set if exists
+                    # (that is, if this is not the last piece, and for follow set, this is nonterminal)
                     # used later to update follow set of current piece
                     next_piece_first_set = None
+                    next_piece_follow_set = None
+
                     if i != pieces_count - 1:
-                        next_piece_first_set = self.first_sets[
-                            cur_prod.target.pieces[i + 1]
-                        ]
+                        next_piece = cur_prod.target.pieces[i + 1]
 
-                    # if this is the last element, or not the last, but all part behind it could become epsilon
-                    # then follow(source) \subset follow(piece)
-                    if all_contains_epsilon_until_now:
-                        cur_piece_follow_set.update(cur_lhs_follow_set)
+                        # get first set
+                        next_piece_first_set = self.first_sets[next_piece]
+                        # get follow set if it's nonterminal
+                        if isinstance(cur_prod.target.pieces[i + 1], NonTerminal):
+                            next_piece_follow_set = current_follow_sets_state[
+                                next_piece
+                            ]
 
-                        # if this piece could not reduce to epsilon (None not in the first set)
-                        # then update flag
-                        if None not in cur_piece_first_set:
-                            all_contains_epsilon_until_now = False
+                    # if next symbol could produce epsilon, add follow(next) to follow(cur)
+                    if (
+                        next_piece_first_set is not None  # exists
+                        and None in next_piece_first_set  # could produce epsilon
+                    ):
+                        if (
+                            next_piece_follow_set is not None
+                        ):  # follow set exists (is nonterminal)
+                            cur_piece_follow_set.update(next_piece_follow_set)
+
+                    # # then add follow(source) to follow(piece)
+                    # if all_contains_epsilon_until_now:
+                    #     # DEBUG
+                    #     if None in cur_lhs_follow_set:
+                    #         breakpoint()
+
+                    #     cur_piece_follow_set.update(cur_lhs_follow_set)
+
+                    #     # if this piece could not reduce to epsilon (None not in the first set)
+                    #     # then update flag
+                    #     if None not in cur_piece_first_set:
+                    #         all_contains_epsilon_until_now = False
 
                     # if not the last one, add the first set of the following piece
                     # to the follow set of current piece
-                    if next_piece_first_set:
-                        cur_piece_follow_set.update(next_piece_first_set)
+                    if next_piece_first_set is not None:
+                        cur_piece_follow_set.update(next_piece_first_set - {None})
 
                     # check if cur_piece is mutated
                     if len(cur_piece_follow_set) > cur_piece_prev_len:
@@ -656,11 +696,12 @@ class CFGSystem:
         # used later to generate new productions.
         new_derivations_dict: dict[NonTerminal, set[Derivation]] = defaultdict(set)
 
-        def replace_beginning_non_terminal_using_processed(
+        def _replace_beginning_non_terminal_using_processed(
             derivations: set[Derivation],
-        ) -> set[Derivation]:
+        ) -> tuple[set[Derivation], bool]:
             """
-            Returns a new set of replaced derivations.
+            Returns a new set of replaced derivations, and a flag that indicates
+            if a replaced occurred.
 
             For a set of derivations(RHS), if the first symbol is non-terminal,
             and that non-terminal is in processed non-terminal set, then
@@ -677,6 +718,9 @@ class CFGSystem:
 
             # store the modified derivations set
             new_derivations_set: set[Derivation] = set()
+
+            # flag to indicate replace occurred
+            replace_occurred: bool = False
 
             # deal with all input derivations
             for cur_derivation in derivations:
@@ -700,6 +744,9 @@ class CFGSystem:
                     new_derivations_set.add(cur_derivation)
                     continue
 
+                # at this point, a replace must happen
+                replace_occurred = True
+
                 # replace it with all possible derivations
                 # e.g.: For a derivation [A]bc, we are doing [...]bc where
                 # [...] is all possible derivation of A.
@@ -709,6 +756,7 @@ class CFGSystem:
                 # or you can say, it must be in the list of already-processed nonterminal
                 all_possible_derivations = new_derivations_dict[cur_deri_first_piece]
                 rest_pieces_without_first_symbol = cur_derivation.pieces[1:]
+
                 for replace_deri in all_possible_derivations:
                     # construct new list of pieces
                     # [replace_part_pieces] + [original_pieces_without_first_symbol]
@@ -722,7 +770,34 @@ class CFGSystem:
 
                     new_derivations_set.add(Derivation(pieces=new_pieces))
 
-            return new_derivations_set
+            return (new_derivations_set, replace_occurred)
+
+        def replace_beginning_non_terminal_using_processed(
+            derivations: set[Derivation],
+        ) -> set[Derivation]:
+            new_derivations = derivations
+
+            _iteration_count = 0
+
+            while True:
+                _iteration_count += 1
+                (new_derivations, replace_occurred) = (
+                    _replace_beginning_non_terminal_using_processed(new_derivations)
+                )
+                if not replace_occurred:
+                    break
+
+                if _iteration_count > 50:
+                    raise RuntimeError(
+                        "Too many iterations when replacing non-terminal "
+                        "in left recursive eliminination process which is unusual. "
+                        "Check if the algorithm is correct. "
+                    )
+            logger.debug(
+                f"Nonterminal replacement finished within {_iteration_count} iteration(s)"
+            )
+
+            return new_derivations
 
         def generate_new_nonterminal(base_symbol: str) -> NonTerminal:
             """

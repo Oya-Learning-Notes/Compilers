@@ -7,3 +7,7 @@ from .type import *
 # Here "type" actually means the Chomsky Hierarhy of a grammar.
 # Checkout https://en.wikipedia.org/wiki/Chomsky_hierarchy for more info.
 from .grammar_type import *
+
+# some LL(1) specific functionality.
+# checkout the module docstring for more info.
+from .ll1 import *
