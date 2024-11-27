@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from collections import defaultdict
 from typing import cast
+from pprint import pformat
+
 from loguru import logger
 
 __all__ = [
@@ -87,6 +89,7 @@ class CFGSystem:
         indicate the parsing entry of this CFG.
         Could be NonTerminal or Terminal, usually to be NonTerminal
         """
+
         self.production_dict: dict[NonTerminal, set[Production]] = {}
         """generated production dict, key is source, value is set of Derivation"""
 
@@ -151,6 +154,9 @@ class CFGSystem:
         self.generate_follow_set_iteratively()
 
     def generate_production_dict(self):
+        """
+        Generate production dictionary based on `self.production_list`
+        """
         # init dict
         self.production_dict = {}
 
@@ -178,6 +184,11 @@ class CFGSystem:
         return derivations
 
     def generate_first_set(self) -> None:
+        """
+        Deprecated. Generate first set recursively for all pieces in this CFG.
+
+        Use generate_first_set_iteratively() instead.
+        """
         # enable recursive tracking (circular recursive)
 
         self._recur_runtime_set_first = set()
@@ -198,7 +209,7 @@ class CFGSystem:
         Notice:
 
         - All pieces in list should be in used_pieces set.
-        - Please ensure call ``generate_first_set()`` before calling this method.
+        - Please ensure `generate_first_set_iteratively()` be called before calling this method.
         """
         # raise runtime error if list empty
         if len(pieces) == 0:
@@ -629,18 +640,260 @@ class CFGSystem:
         # Adopt the final state as the result of follow sets
         self.follow_sets = current_follow_sets_state
 
+    def eliminate_left_recursive(self) -> "CFGSystem":
+        """
+        Return a NEW CFGSystem instance that based on current instance
+        but with all direct and indirect left recursions eliminated
 
-# a -> bc
-# c -> xa
-# a -> bxa
+        Left recursive elimination algorithm is based on the one on Wikipedia:
+        https://en.wikipedia.org/wiki/Left_recursion
+        """
 
+        # record a set of non-terminals that already does not contains
+        processed_derivations_set: set[NonTerminal] = set()
 
-# A -> b|Ax
-# Change grammar
-# A -> bA'
-# A'-> x | xA' | e (e means epsilon here)
+        # record the newly generated source and derivations pairs.
+        # used later to generate new productions.
+        new_derivations_dict: dict[NonTerminal, set[Derivation]] = defaultdict(set)
 
-# A -> BC
-# C -> DA
-# A -> BC -> BDA,  A ->* BDA, Follow(A) \subset Follow(A)
-# ABDBDBDBDBDBDA
+        def replace_beginning_non_terminal_using_processed(
+            derivations: set[Derivation],
+        ) -> set[Derivation]:
+            """
+            Returns a new set of replaced derivations.
+
+            For a set of derivations(RHS), if the first symbol is non-terminal,
+            and that non-terminal is in processed non-terminal set, then
+            replace that non-terminal with all possible derivations from it.
+
+            This is in order to gradually convert indirect left recursive to
+            direct left recursive.
+
+            Checkout the detail of left recursive algorithm for more info.
+            """
+
+            nonlocal processed_derivations_set
+            nonlocal new_derivations_dict
+
+            # store the modified derivations set
+            new_derivations_set: set[Derivation] = set()
+
+            # deal with all input derivations
+            for cur_derivation in derivations:
+
+                # epsilon production, skip
+                if cur_derivation.pieces is None:
+                    new_derivations_set.add(cur_derivation)
+                    continue
+
+                cur_deri_first_piece = cur_derivation.pieces[0]
+
+                # if the first symbol is not a non-terminal, skip
+                if not isinstance(cur_deri_first_piece, NonTerminal):
+                    new_derivations_set.add(cur_derivation)
+                    continue
+
+                # at this point, first symbol is a non-terminal
+
+                # that first non-terminal is not in processed list, skip
+                if not cur_deri_first_piece in processed_derivations_set:
+                    new_derivations_set.add(cur_derivation)
+                    continue
+
+                # replace it with all possible derivations
+                # e.g.: For a derivation [A]bc, we are doing [...]bc where
+                # [...] is all possible derivation of A.
+                #
+                # And based on the left recursion eliminate algorithm,
+                # here A must already be in the new_derivations_dict,
+                # or you can say, it must be in the list of already-processed nonterminal
+                all_possible_derivations = new_derivations_dict[cur_deri_first_piece]
+                rest_pieces_without_first_symbol = cur_derivation.pieces[1:]
+                for replace_deri in all_possible_derivations:
+                    # construct new list of pieces
+                    # [replace_part_pieces] + [original_pieces_without_first_symbol]
+                    new_pieces: list[Piece] | None = []
+                    if replace_deri.pieces is not None:
+                        new_pieces.extend(replace_deri.pieces)  # type:ignore
+                    new_pieces.extend(rest_pieces_without_first_symbol)  # type:ignore
+
+                    if len(new_pieces) == 0:  # type:ignore
+                        new_pieces = None
+
+                    new_derivations_set.add(Derivation(pieces=new_pieces))
+
+            return new_derivations_set
+
+        def generate_new_nonterminal(base_symbol: str) -> NonTerminal:
+            """
+            Return a new NonTerminal instance generated based on `base_symbol`
+
+            When eliminating direct left recursive, we may need to create set of
+            new productions with new NonTerminal as LHS.
+            For example, A -> Ab | c may be converted to A -> bA' | c,
+            where A' -> x | xA' | e (A' is a new NonTerminal instance)
+
+            This function will return a non terminal symbol that not appeared in:
+            - Symbol name in `self.used_pieces`
+            - Symbol name in `new_derivations_dict`
+            """
+            nonlocal self
+            nonlocal new_derivations_dict
+
+            used_name_set: set[str] = set()
+
+            for p in self.used_pieces:
+                used_name_set.add(p.name)
+
+            for p in new_derivations_dict.keys():
+                used_name_set.add(p.name)
+
+            new_symbol_name = base_symbol + "'"
+
+            while new_symbol_name in used_name_set:
+                new_symbol_name += "'"
+
+            return NonTerminal(name=new_symbol_name)
+
+        def eliminate_direct_left_recursive(
+            source: NonTerminal, derivations: set[Derivation]
+        ) -> set[Production]:
+            """
+            This function focus on all productions that shares identical LHS.
+            Productions passed in a form of single LHS as `source` and
+            set of all possible derivations(RHS) as `derivations`
+
+            Detect direct left recursive in given productions,
+            output a new set of derivations that without direct recursive.
+
+            If no left recursive detected, return the derivations unchanged.
+            """
+
+            logger.debug(f"Checking direct left recursive relavant to {source}")
+
+            recursive_derivations_set: set[Derivation] = set()
+            non_recursive_derivations_set: set[Derivation] = set()
+
+            modified_productions_set: set[Production] = set()
+
+            # iterate through all derivations
+            # seperate recursive and non-recursive derivations
+            for cur_derivation in derivations:
+                cur_pieces = cur_derivation.pieces
+
+                # epsilon derivations, skip
+                if cur_pieces is None:
+                    non_recursive_derivations_set.add(cur_derivation)
+                    continue
+
+                cur_first_piece = cur_pieces[0]
+                # first piece is source, this is left recursive derivation
+                if cur_first_piece == source:
+                    recursive_derivations_set.add(cur_derivation)
+                # first piece is not source, non recursive
+                else:
+                    non_recursive_derivations_set.add(cur_derivation)
+
+            # if no recursive detected, return original derivations unchanged
+            if len(recursive_derivations_set) == 0:
+                logger.debug("No direct left recursive detected")
+
+                for cur_derivation in derivations:
+                    modified_productions_set.add(
+                        Production(source=source, target=cur_derivation)
+                    )
+
+                return modified_productions_set
+
+            # at this point, there must be some left-recursive derivations
+            # deal with them
+
+            # create new util LHS symbol
+            new_lhs: NonTerminal = generate_new_nonterminal(source.name)
+
+            logger.debug(
+                f"Direct left recursive detected, creating new util non terminal {new_lhs}"
+            )
+            logger.debug(
+                f"Direct recursive derivations: \n {pformat(recursive_derivations_set)}"
+            )
+
+            # For all A -> y, Add A -> yA'
+            for cur_derivation in non_recursive_derivations_set:
+
+                # get "y" part
+                cur_pieces = cur_derivation.pieces
+                if cur_pieces is None:
+                    cur_pieces = []
+
+                cur_pieces = cast("list[Piece]", cur_pieces)  # for type hint
+
+                # construct new pieces
+                new_pieces = cur_pieces + [new_lhs]  # y + A' = yA'
+                # add derivations to modified set
+                modified_productions_set.add(
+                    Production(source=source, target=Derivation(pieces=new_pieces))
+                )  # A' -> yA'
+
+            # For all A -> Ax, change it to A' -> xA'
+            for cur_derivation in recursive_derivations_set:
+                cur_pieces = cur_derivation.pieces
+
+                # the pieces should not be none, because at least, there would be
+                # a single non-terminal "A" at the first that causes left recursive
+                assert (
+                    cur_pieces is not None
+                ), "Recursive derivations produce epsilon, which is impossible."
+
+                # get "x" part
+                non_recursive_pieces = cur_pieces[1:]
+
+                # construct new pieces
+                new_pieces = cur_pieces[1:] + [new_lhs]  # x + A' = xA'
+                # add derivations to modified set
+                modified_productions_set.add(
+                    Production(source=new_lhs, target=Derivation(pieces=new_pieces))
+                )
+
+            # add A' -> epsilon
+            modified_productions_set.add(
+                Production(source=new_lhs, target=Derivation(pieces=None))
+            )
+
+            logger.debug(f"Modified productions: \n{pformat(modified_productions_set)}")
+
+            return modified_productions_set
+
+        # get all nonterminal
+        non_terminals = [p for p in self.used_pieces if isinstance(p, NonTerminal)]
+
+        # iterate through each non-terminal, eliminate it's recursive, then generate new productions
+        for cur_nonterminal in non_terminals:
+            logger.debug(f"Processing non terminal {cur_nonterminal}")
+            # get all derivations of current nonterminal
+            cur_derivations = self.get_all_derivation(cur_nonterminal)
+
+            # replace beginning non-terminal with processed derivations
+            cur_derivations = replace_beginning_non_terminal_using_processed(
+                cur_derivations
+            )
+
+            # eliminate direct left recursive
+            modified_productions_set = eliminate_direct_left_recursive(
+                cur_nonterminal, cur_derivations
+            )
+
+            # add to new derivations dict
+            for p in modified_productions_set:
+                new_derivations_dict[p.source].add(p.target)
+
+            # add this nonterminal to processed
+            processed_derivations_set.add(cur_nonterminal)
+
+        # construct all new productions based on derivations set
+        new_productions: set[Production] = set()
+        for source, derivations in new_derivations_dict.items():
+            for target in derivations:
+                new_productions.add(Production(source=source, target=target))
+
+        return CFGSystem(production_list=list(new_productions), entry=self.entry)
