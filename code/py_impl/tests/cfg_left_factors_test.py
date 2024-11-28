@@ -36,13 +36,13 @@ S = NonTerminal("S")
 X = NonTerminal("X")
 A = NonTerminal("A")
 B = NonTerminal("B")
+C = NonTerminal("C")
 
 # Define Terminals
-a = Terminal("a")
-b = Terminal("b")
-c = Terminal("c")
-d = Terminal("d")
-# end = Terminal("$")
+add = Terminal("+")
+
+
+T = NonTerminal("T")
 
 # Define Productions after Left Factoring
 productions_not_ll1_after_extraction = [
@@ -54,6 +54,20 @@ productions_not_ll1_after_extraction = [
     Production(source=A, target=Derivation([])),  # A → ε
     Production(source=B, target=Derivation([d])),  # B → d
     Production(source=B, target=Derivation(None)),  # B → ε
+]
+
+
+test_production_list = [
+    Production(source=S, target=Derivation([T])),
+    Production(source=S, target=Derivation([T, add, A])),
+    Production(source=S, target=Derivation([T, add, B])),
+    Production(source=S, target=Derivation([T, add, B, add, C])),
+    Production(source=S, target=Derivation([d, X])),
+    Production(source=X, target=Derivation([a])),
+    Production(source=A, target=Derivation([a])),
+    Production(source=B, target=Derivation([b])),
+    Production(source=C, target=Derivation([c])),
+    Production(source=T, target=Derivation([d])),
 ]
 
 
@@ -91,6 +105,15 @@ def test_left_factor_extraction():
     logger.info("Follow sets:\n" + pformat(new_not_ll1_cfg.follow_sets))
     logger.info("Select sets:\n" + pformat(new_not_ll1_cfg.select_sets))
     logger.success(f"New CFG is_ll_1()={new_not_ll1_cfg.is_ll_1()}")
+
+    logger.success("-------------------------------------------------")
+    logger.info("Third test case:")
+
+    test_cfg = LL1CFGSystem(
+        production_list=test_production_list, entry=S, allow_conflict=True
+    )
+    test_cfg = test_cfg.extract_left_factors(render=True)
+    # test_cfg = test_cfg.extract_left_factors(render=True)
 
 
 if __name__ == "__main__":

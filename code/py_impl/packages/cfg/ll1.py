@@ -314,7 +314,11 @@ class PrefixTreeManager:
 
         return graphviz_obj
 
-    def render(self, name: str | None = None, format: str = "pdf") -> None:
+    def render(
+        self,
+        name: str | None = None,
+        format: str = "pdf",
+    ) -> None:
         if name is None:
             name = f"Derivation Prefix Tree LHS=({self.lhs})"
 
@@ -441,10 +445,19 @@ class LL1CFGSystem(CFGSystem):
         except SelectSetConflictError:
             return False
 
-    def extract_left_factors(self) -> "LL1CFGSystem":
+    def extract_left_factors(self, render: bool = False) -> "LL1CFGSystem":
         """
-        Return a new LL1CFGSystem with all left factors
+        Return a new `LL1CFGSystem` object with all left factors
         extracted using new non terminals.
+
+        Args:
+            render: Render graphviz dot file and pdf of prefix tree if `True`.
+                The file will located in path `./graphviz` relavant to your `pwd`.
+
+        Note:
+            Setting `render=True` in debug mode could cause unexpected behaviour.
+            This issue seems to be caused by `graphviz` python package and currently
+            has no solution.
         """
 
         new_nonterminals_set: set[NonTerminal] = set()
@@ -505,6 +518,10 @@ class LL1CFGSystem(CFGSystem):
                 lhs=cur_nt, symbol_generator=new_non_terminal_allocator
             )
             ptree_mgr.add_derivations(cur_nt_derivations_set)
+
+            # render graphviz file if needed
+            if render == True:
+                ptree_mgr.render()
 
             # gathering all new productions based on the info of prefix tree manager
             ptree_mgr.gather_productions(production_set=new_productions_set)

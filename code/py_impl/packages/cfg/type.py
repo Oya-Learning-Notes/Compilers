@@ -5,6 +5,8 @@ from pprint import pformat
 
 from loguru import logger
 
+from errors import BaseError
+
 __all__ = [
     "Piece",
     "Terminal",
@@ -12,6 +14,7 @@ __all__ = [
     "CFGSystem",
     "Production",
     "Derivation",
+    "NoValidDerivationError",
 ]
 
 
@@ -47,6 +50,7 @@ class Derivation:
     Class that represents the RHS(Right-hand side)
     of a production in CFG(Context-free grammar)
     """
+
     pieces: list[Piece] | None
 
     def __init__(self, pieces: list[Piece] | None):
@@ -82,6 +86,30 @@ class Production:
     def __repr__(self) -> str:
         repr_str = f"{repr(self.source)} -> {repr(self.target)}"
         return repr_str
+
+
+class NoValidDerivationError(BaseError):
+    """
+    Raised when CFGSystem could not found any derivations of a NonTerminal.
+    """
+
+    def __init__(
+        self,
+        name: str = "no_valid_derivation",
+        message: str | None = None,
+        lhs: NonTerminal | None = None,
+    ):
+        if message is None:
+            message = (
+                f"Could not found any derivations that use a certain non terminal."
+            )
+        if lhs is not None:
+            message += f" (Non terminal: {lhs})"
+            message += (
+                " This non terminal is most likely to be unused terminal and "
+                "all productions relavant to this non terminal should be removed from grammar."
+            )
+        super().__init__(name=name, message=message)
 
 
 class CFGSystem:
@@ -185,8 +213,11 @@ class CFGSystem:
         """
         # notice the data depend on self.generate_production_dict
         derivations: set[Derivation] = set()
-        for prod in self.production_dict[source]:
-            derivations.add(prod.target)
+        try:
+            for prod in self.production_dict[source]:
+                derivations.add(prod.target)
+        except KeyError as e:
+            raise NoValidDerivationError(lhs=source) from e
 
         return derivations
 
