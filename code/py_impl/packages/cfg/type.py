@@ -47,8 +47,15 @@ class Derivation:
     Class that represents the RHS(Right-hand side)
     of a production in CFG(Context-free grammar)
     """
+    pieces: list[Piece] | None
 
-    pieces: list[Piece] | None  # None means this production could derive into epsilon
+    def __init__(self, pieces: list[Piece] | None):
+
+        if pieces is not None and len(pieces) == 0:
+            pieces = None
+
+        # None means this production could derive into epsilon
+        self.pieces: list[Piece] | None = pieces
 
     def __hash__(self):
         if self.pieces is None:
