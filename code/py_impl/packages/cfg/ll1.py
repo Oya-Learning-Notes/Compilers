@@ -4,7 +4,7 @@ that specifically related to LL(1) specific features.
 """
 
 from .type import *
-from typing import Iterable, cast, FrozenSet
+from typing import Iterable, cast, FrozenSet, Callable, Any, Protocol
 from pprint import pformat
 
 from loguru import logger
@@ -59,6 +59,56 @@ class SelectSetConflictError(LL1CFGSystemError):
         super().__init__(name, message)
 
 
+class NoAvailableSymbolNameError(LL1CFGSystemError):
+    def __init__(
+        self,
+        name: str = "no_available_symbol_name",
+        message: str = "Could not allocate new symbol name, all available symbol names are used up. ",
+    ):
+        super().__init__(name=name, message=message)
+
+
+class PrefixTreeNode:
+    """
+    Util class that used internally as prefix tree node in the process of
+    extract left factors
+    """
+
+    def __init__(self, symbol: Piece):
+        self.piece: Piece | None = symbol
+        """
+        The symbol that current node represents
+
+        Thie field could be `None`, which could indicates two 
+        different situations:
+        - The original derivation has epsilon RHS.
+        - Marks the end of original derivation.
+        """
+
+        self.children: "list[Piece]" = []
+        """List of child nodes"""
+
+
+class PerfixTreeManager:
+    """
+    Util class that used internally to construct prefix tree of a
+    derivations.
+
+    Prefix tree could be used to extract shared left factors when
+    dealing with possible LL(1) CFG system.
+    """
+
+    def __init__(
+        self, lhs: NonTerminal, symbol_generator: Callable[[Any], str]
+    ) -> None:
+        self.lhs = lhs
+        self._symbol_generator = symbol_generator
+
+    def add_derivation(self, derivation: Derivation):
+        # Todo
+        pass
+
+
 class LL1CFGSystem(CFGSystem):
     """
     A CFGSystem that is specifically used for LL(1) grammar.
@@ -86,15 +136,22 @@ class LL1CFGSystem(CFGSystem):
             self._check_select_set_conflict()
         except SelectSetConflictError as e:
             if allow_conflict:
-                logger.error(e)
+                # logger.error(e)
                 logger.warning(
                     "LL(1) CFG System instance created even conflict detected, "
                     "since allow_conflict=True passed to init function. "
-                    "This is supposed to be used only for debugging, "
-                    "only use this parameter if you know what you are doing. "
                 )
             else:
                 raise
+
+    @classmethod
+    def from_cfg(cls, cfg: CFGSystem, allow_conflict: bool = True) -> "LL1CFGSystem":
+        """Construct LL(1)CFGSystem instance from its super class"""
+        return cls(
+            production_list=cfg.production_list,
+            entry=cfg.entry,
+            allow_conflict=allow_conflict,
+        )
 
     def _generate_select_sets(self) -> dict[Production, frozenset[Terminal]]:
         """
@@ -160,3 +217,62 @@ class LL1CFGSystem(CFGSystem):
                     lhs=cur_nonterminal,
                     select_sets=cur_productions_select_sets,
                 )
+
+    def is_ll_1(self) -> bool:
+        """Return `True` if this grammar is LL(1) compatible."""
+        try:
+            self._check_select_set_conflict()
+            return True
+        except SelectSetConflictError:
+            return False
+
+    def extract_left_factors(self) -> "LL1CFGSystem":
+        """
+        Return a new LL1CFGSystem with all left factors
+        extracted using new non terminals.
+        """
+
+        new_nonterminals_set: set[NonTerminal] = set()
+        """
+        Store new nonterminals that used as util symbol 
+        to extract left factor
+        """
+
+        new_productions_set: set[Production] = set()
+        """
+        Store all newly generated productions by prefix tree
+
+        Will be used to generate new CFGGrammar
+        """
+
+        _tmp_used_pieces_names_set: set[str] = set([p.name for p in self.used_pieces])
+
+        def new_non_terminal_allocator() -> NonTerminal:
+            """
+            Function used to allocate a valid new nonterminal
+            symbol name.
+
+            Also update new_nonterminal_set temporary sets to
+            make sure allocated names is not duplicated
+            """
+            nonlocal self
+            nonlocal new_nonterminals_set
+
+            available_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+            # calculate used name
+            used_name_set: set[str] = set()
+            used_name_set.update(_tmp_used_pieces_names_set)
+            used_name_set.update([n.name for n in new_nonterminals_set])
+
+            # loop through available chars to find valid one
+            # here we want to allocates from Z to A
+            # which will help us to distinguish the util symbol
+            # more quickly.
+            for c in reversed(available_chars):
+                if not c in used_name_set:
+                    return NonTerminal(name=c)
+
+            raise NoAvailableSymbolNameError()
+
+        return LL1CFGSystem()
