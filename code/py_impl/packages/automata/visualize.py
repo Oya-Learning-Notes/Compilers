@@ -110,11 +110,9 @@ class FADiGraph[LabelType, CharType]:
 
     def __init__(
         self,
-        fa: FA,
+        fa: FA[LabelType, CharType],
         name: str | None = None,
         style: FADiGraphStyle[LabelType, CharType] = AutomataStandardStyle,
-        # get_node_label: Callable[[str, FANode[LabelType, CharType]], str] | None = None,
-        # get_edge_label: Callable[[tuple[object, str]], str] | None = None,
     ):
         # init name
         self.name = name or "Automata Graph"
@@ -143,7 +141,7 @@ class FADiGraph[LabelType, CharType]:
         return ret_str
 
     @staticmethod
-    def get_node_label_default(nid: str, node: FANode)->str:
+    def get_node_label_default(nid: str, node: FANode) -> str:
         label_repr = ""
         label = node.label
 
@@ -172,7 +170,6 @@ class FADiGraph[LabelType, CharType]:
             return str(label)
 
         return get_repr_from_label(label)
-
 
     @staticmethod
     def get_edge_label_default(edge_info: tuple[object, str]):
@@ -254,7 +251,6 @@ class FADiGraph[LabelType, CharType]:
     def render(self, format="pdf", **kwargs):
         self._graphviz_obj.render(
             filename=f"{self.name}",
-            directory="./graphviz",
             format=format,
             **kwargs,
         )

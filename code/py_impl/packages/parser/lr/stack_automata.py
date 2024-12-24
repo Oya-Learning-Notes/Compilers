@@ -9,9 +9,9 @@ from automata import FA, FANode
 from automata.visualize import FADiGraph
 
 __all__ = [
-    'StackAutomaton',
-    'EntryPatternNotMatch',
-    'ParserStackItem',
+    "StackAutomaton",
+    "EntryPatternNotMatch",
+    "ParserStackItem",
 ]
 
 
@@ -102,19 +102,24 @@ class StackAutomaton:
                 continue
 
             # add forward item
-            forward_item = self._items_helper.get_forward_item(current_item, write_if_not_exists=False)
+            forward_item = self._items_helper.get_forward_item(
+                current_item, write_if_not_exists=False
+            )
             # search forward item too if it's not been tracked
             if not self._items_helper.has_item(forward_item):
                 process_list.append(forward_item)
             # add pointer
-            self._items_helper.point_to(current_item, current_item.core.get_waiting(), forward_item)
+            self._items_helper.point_to(
+                current_item, current_item.core.get_waiting(), forward_item
+            )
 
             # found watching piece
             watching_piece = current_item.core.get_waiting()
             # add closure item if waiting item is non-terminal
             if not isinstance(current_item.core.get_waiting(), NonTerminal):
                 continue
-            watching_piece: NonTerminal
+            assert isinstance(watching_piece, NonTerminal)
+
             lookahead_set = self._generate_lookahead(current_item, forward_item)
             # found production that source is the waiting item
             for prod in self.cfg_sys.production_dict[watching_piece]:
@@ -133,12 +138,12 @@ class StackAutomaton:
 
         nfa = FA(fa_node_dicts)
         dfa = nfa.to_dfa(new_fa=True, minimize=False)
-        dfa.minimize(new_fa=False, skip_if_pointers_empty=True)
-
         self._fa = dfa
         return dfa
 
-    def _generate_lookahead(self, current_item: Item, forward_item: Item) -> set[Piece] | None:
+    def _generate_lookahead(
+        self, current_item: Item, forward_item: Item
+    ) -> set[Terminal] | None:
         """
         Default lookahead generator logic for CLR
 
@@ -166,11 +171,13 @@ class StackAutomaton:
 
         return first_set_of_rest
 
-    def to_graphviz(self) -> Digraph:
-        gv_instance = FADiGraph(get_node_label=self.get_dfa_node_label)
-        return gv_instance.from_fa(self._fa).get_graph()
+    def to_graphviz(self):
+        gv_instance = FADiGraph(fa=self._fa)
+        return gv_instance
 
-    def match_stack(self, stack: list[Piece], start_states: set[FANode] | None = None) -> list[ParserStackItem] | None:
+    def match_stack(
+        self, stack: list[Piece], start_states: set[FANode] | None = None
+    ) -> list[ParserStackItem] | None:
         """
         Try matching a list of Pieces using this Stack Automaton.
 
@@ -201,7 +208,9 @@ class StackAutomaton:
             if not valid_move:
                 return None
             # match success, create new StackItem
-            new_stack_item = ParserStackItem(piece=stack_elem, fa_state=self._fa.get_current_state())
+            new_stack_item = ParserStackItem(
+                piece=stack_elem, fa_state=self._fa.get_current_state()
+            )
             # add new stack item to return list.
             stack_items.append(new_stack_item)
 
@@ -214,12 +223,12 @@ class StackAutomaton:
 
         This method should not be directly called by user, but could be overridden if needed.
         """
-        node_label_str = ''
+        node_label_str = ""
         # deduplicated_label = list(set(node.label))
         deduplicated_label = node.label
         for item in deduplicated_label:
             node_label_str += str(item)
-            node_label_str += '\n'
+            node_label_str += "\n"
 
         return node_label_str
         # return str(node.label)
@@ -228,8 +237,8 @@ class StackAutomaton:
 class EntryPatternNotMatch(Exception):
     def __init__(self, entry: Piece, production: Production | None = None):
         super().__init__(
-            f'Error occurred when generating Stack Automaton for LR Parser. '
-            f'Provided entry {entry} found as the source of Production {production}, '
-            f'However this production do NOT in accordance to the rules of CLR(1) '
-            'augmented CFG pattern. Entry production should have the schema S\' -> S$. '
+            f"Error occurred when generating Stack Automaton for LR Parser. "
+            f"Provided entry {entry} found as the source of Production {production}, "
+            f"However this production do NOT in accordance to the rules of CLR(1) "
+            "augmented CFG pattern. Entry production should have the schema S' -> S$. "
         )

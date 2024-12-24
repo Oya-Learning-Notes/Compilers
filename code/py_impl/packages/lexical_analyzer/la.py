@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 import reg_exp as regex
-import automata as fa
+import automata as fapkg
 from cfg import Terminal, NonTerminal
 
 
@@ -13,12 +13,14 @@ class TokenDefinition:
 
     regular_expr: regex.RegularExpr
 
-    fa: fa.FA
+    fa: fapkg.FA
 
     def use_dfa(self):
         self.fa = self.fa.to_dfa()
 
-    def __init__(self, token_type: str, regular_expr: regex.RegularExpr, priority: int = 0):
+    def __init__(
+        self, token_type: str, regular_expr: regex.RegularExpr, priority: int = 0
+    ):
         self.token_type = token_type
         self.priority = priority
         self.regular_expr = regular_expr
@@ -102,10 +104,11 @@ class LexicalAnalyzer:
                 has_match = True
                 # has matched prefix in string
                 # add token pairs
-                self.token_pairs.append(TokenPair(
-                    token_type=token_defs.token_type,
-                    content=input_str[0:max_match]
-                ))
+                self.token_pairs.append(
+                    TokenPair(
+                        token_type=token_defs.token_type, content=input_str[0:max_match]
+                    )
+                )
                 # update parsed
                 parsed += max_match
                 # update input str
@@ -113,6 +116,6 @@ class LexicalAnalyzer:
 
             # no token matched
             if not has_match:
-                raise RuntimeError(f'Failed to parse token, parsed: {parsed}')
+                raise RuntimeError(f"Failed to parse token, parsed: {parsed}")
 
         return self.token_pairs
