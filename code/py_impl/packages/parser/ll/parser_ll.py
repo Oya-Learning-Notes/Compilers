@@ -185,7 +185,12 @@ class LLParser:
         # loop while not fully parsed
         while self._total_token_count > self._parsed_count:
             self._match_terminal_forward()
-            self._derive_leftmost_non_terminal()
+            try:
+                self._derive_leftmost_non_terminal()
+            except NoValidMove as e:
+                raise general_err.ParseErrorBase(
+                    message="Could not parse the input string"
+                ) from e
 
         # check if parse tree valid
         if not self._parse_tree.is_valid():
@@ -214,7 +219,7 @@ class LLParser:
         new_pieces = move_info.target.pieces
         self._parse_tree.derive_non_terminal(index, new_pieces, move_info)
 
-    def _match_terminal_forward(self):
+    def _match_terminal_forward(self) -> None:
         """
         Try match token list with terminal leaves in parse tree.
 

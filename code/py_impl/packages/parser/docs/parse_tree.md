@@ -6,7 +6,6 @@
   - [For Top-down Algorithms](#for-top-down-algorithms)
   - [For Bottom-up Algorithms](#for-bottom-up-algorithms)
 
-
 # Node In Parse Tree
 
 ## About ParseTreeNode and pointers
@@ -26,7 +25,7 @@ This is because we use `None` to represent $\varepsilon$ in this packages, howev
 
 Once a $\varepsilon$ terminal has been pass to parse tree, the parse tree will use such terminal to generate **Epsilon Node** everytime it's used.
 
-We could not directly cache the *Epsilon Node*, since different node that has been derived to $\varepsilon$ should actually link to it's own child *Epsilon Node*.
+We could not directly cache the _Epsilon Node_, since different node that has been derived to $\varepsilon$ should actually link to it's own child _Epsilon Node_.
 
 ## Corresponding Production Info
 
@@ -36,7 +35,7 @@ For each node, we may store the corresponding Production info that related to th
 
 The **corresponding Production should represents the relationship of this node and its children nodes**.
 
------
+---
 
 **Usage Of Corresponding Production**
 
@@ -49,7 +48,7 @@ The ParseTree class should be designed to serve several different Parsing Algori
 
 There is two basic types of those Algorithm: Top-down and Bottom-up.
 
-To support these two types of algorithm simultaneously, we define two fields in this class:
+To support these two types of algorithm simultaneously, we define and keep track of two things in this class:
 
 - `entries`
 - `leaves`
@@ -85,4 +84,3 @@ the three
 nodes, then replace `node2, node3, node4` in `entries` with `node1`.
 
 When finished, `entries` should become a list of single Node that matches the Entry NonTerminal type.
-
