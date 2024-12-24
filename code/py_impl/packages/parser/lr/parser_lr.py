@@ -12,9 +12,7 @@ from ..parse_tree import *
 from .stack_automata import *
 from .. import errors as general_err
 
-__all__ = [
-    'LRParserBase'
-]
+__all__ = ["LRParserBase"]
 
 
 class LRParserBase:
@@ -32,9 +30,10 @@ class LRParserBase:
     Fields:
     - ``_parser_type`` The string that represents the type of the parser. E.g.: SLR, CLR, ...
     """
+
     cfg_sys: CFGSystem
 
-    _parser_type: str = 'Base LR'
+    _parser_type: str = "Base LR"
 
     _token_list: list[TokenPair]
 
@@ -54,15 +53,15 @@ class LRParserBase:
     stack_automaton: StackAutomaton
 
     def __init__(
-            self,
-            cfg_sys: CFGSystem,
-            epsilon_terminal: Terminal | None = None,
+        self,
+        cfg_sys: CFGSystem,
+        epsilon_terminal: Terminal | None = None,
     ):
         self.cfg_sys = cfg_sys
         self._epsilon_terminal = epsilon_terminal
         self._generate_automaton()
 
-    def init_state(self, token_list: list[TokenPair]) -> 'LRParserBase':
+    def init_state(self, token_list: list[TokenPair]) -> "LRParserBase":
         """
         Prepare the parser, make it ready to parse the input list of token.
         """
@@ -93,23 +92,29 @@ class LRParserBase:
 
         # parse until parse tree valid or all token used
         while not self._parse_tree.is_valid_for_bottom_up():
+            logger.debug(f"Stack: {self._stack}")
+
             # check if we should perform reduction
             reduce_prod = self._should_reduce()
             # perform reduction if should
             if reduce_prod is not None:
+                logger.debug(f"Reduction using prod: {reduce_prod}")
                 self.perform_reduction(reduce_prod)
             # else, perform shift
             else:
+                logger.debug(f"Shift {self._get_lookahead()} into stack")
                 self.perform_shift()
 
         # error detection part
-
         if len(self._unexamined) > 0:
-            general_err.ParseErrorBase(f'Parse Tree has been fully reduced with unexamined tokens {token_list}')
+            general_err.ParseErrorBase(
+                f"Parse Tree has been fully reduced with unexamined tokens {token_list}"
+            )
 
         if self._parse_tree.is_valid():
             general_err.ParseErrorBase(
-                'Could not successfully reduced into a valid parse tree with all tokens already used')
+                "Could not successfully reduced into a valid parse tree with all tokens already used"
+            )
 
         # all good, return parse tree
         return self._parse_tree
@@ -179,7 +184,9 @@ class LRParserBase:
 
         # there should be at most one matched item
         if matched_count > 1:
-            raise ReduceReduceConflict(conflict_item=matched_items, parser_type=self._parser_type)
+            raise ReduceReduceConflict(
+                conflict_item=matched_items, parser_type=self._parser_type
+            )
 
         # retrieve the only matched item
         single_match_item: Item = None
@@ -213,7 +220,9 @@ class LRParserBase:
         # raise error if pieces not match
         # if target pieces is None, means target is epsilon, no need to check
         if (target_pieces is not None) and (not (stack_top_pieces == target_pieces)):
-            raise InvalidReductionError(production_target=target_pieces, stack_top=stack_top_pieces)
+            raise InvalidReductionError(
+                production_target=target_pieces, stack_top=stack_top_pieces
+            )
 
         # reduction could be successfully performed.
 
@@ -223,9 +232,8 @@ class LRParserBase:
 
         # update parse tree
         self._parse_tree.reduce_node(
-            start_index=len(self._stack),
-            reduce_size=reduce_size,
-            new_piece=source)
+            start_index=len(self._stack), reduce_size=reduce_size, new_piece=source
+        )
 
         # generate item for new pieces
         # if the stack is not empty after removing target pieces, means we could start matching at the state of top of
@@ -233,7 +241,9 @@ class LRParserBase:
         start_states: set[FANode] | None = None
         if len(self._stack) > 0:
             start_states = self._stack[-1].fa_state
-        new_stack_item_list = self.stack_automaton.match_stack(stack=[source], start_states=start_states)
+        new_stack_item_list = self.stack_automaton.match_stack(
+            stack=[source], start_states=start_states
+        )
 
         # special judge when source if entry. (since stack automaton could not match the true entry)
         if source == self.cfg_sys.entry:
@@ -254,7 +264,8 @@ class LRParserBase:
         # raise error if it could not shift
         if len(self._unexamined) == 0:
             raise RuntimeError(
-                'Could not perform Shift operation for this parser, since no more tokens in unexamined list.')
+                "Could not perform Shift operation for this parser, since no more tokens in unexamined list."
+            )
 
         # get first token in unexamined
         token_terminal_to_be_shift = self._unexamined.pop(0).to_terminal()
@@ -263,8 +274,9 @@ class LRParserBase:
         start_state: set[FANode] | None = None
         if len(self._stack) > 0:
             start_state = self._stack[-1].fa_state
-        parser_item_list = self.stack_automaton.match_stack(stack=[token_terminal_to_be_shift],
-                                                            start_states=start_state)
+        parser_item_list = self.stack_automaton.match_stack(
+            stack=[token_terminal_to_be_shift], start_states=start_state
+        )
 
         # raise error if shift breaks viable prefixes
         if parser_item_list is None:
@@ -303,6 +315,7 @@ class CLRParser(LRParserBase):
     Also in CLR(1) Items, lookahead is None represent reduce with no limitation. This will only be used in the entry
     of the augmented grammar. S' -> S$, this item should have the None as the lookahead.
     """
+
     pass
 
 
@@ -318,11 +331,11 @@ class ReduceReduceConflict(Exception):
         - conflict_item A set of the conflict item.
         - parser_type String represents the type of the parser. E.g.: CLR, LR(1), ...
         """
-        parser_type_str = ''
+        parser_type_str = ""
         if parser_type is not None:
-            parser_type_str += f' with type {parser_type}'
+            parser_type_str += f" with type {parser_type}"
 
-        error_msg = f'Reduce-Reduce error occurred in parser{parser_type_str}. Set of conflict items: {conflict_item}'
+        error_msg = f"Reduce-Reduce error occurred in parser{parser_type_str}. Set of conflict items: {conflict_item}"
 
 
 class InvalidReductionError(general_err.ParseErrorBase):
@@ -333,8 +346,8 @@ class InvalidReductionError(general_err.ParseErrorBase):
 
     def __init__(self, production_target: list[Piece], stack_top: list[Piece]):
         super().__init__(
-            f'A Reduction by Production with target pieces {production_target} could not been performed, '
-            f'since the top part of parser Stack {stack_top} does not match such pieces.'
+            f"A Reduction by Production with target pieces {production_target} could not been performed, "
+            f"since the top part of parser Stack {stack_top} does not match such pieces."
         )
 
 
@@ -345,7 +358,7 @@ class ReductionStateError(general_err.ParseErrorBase):
 
     def __init__(self):
         super().__init__(
-            'A Production has been successfully performed, but the new Stack is not a viable prefix after reducing.'
+            "A Production has been successfully performed, but the new Stack is not a viable prefix after reducing."
         )
 
 
@@ -356,5 +369,5 @@ class ShiftStateError(general_err.ParseErrorBase):
 
     def __init__(self):
         super().__init__(
-            'Stack is not viable prefixes anymore after a Shift operation.'
+            "Stack is not viable prefixes anymore after a Shift operation."
         )
